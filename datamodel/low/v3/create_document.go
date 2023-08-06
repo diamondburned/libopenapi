@@ -11,6 +11,7 @@ import (
 	"github.com/pb33f/libopenapi/index"
 	"github.com/pb33f/libopenapi/resolver"
 	"github.com/pb33f/libopenapi/utils"
+	"github.com/pb33f/libopenapi/utils/typex"
 )
 
 // CreateDocument will create a new Document instance from the provided SpecInfo.
@@ -237,7 +238,7 @@ func extractWebhooks(info *datamodel.SpecInfo, doc *Document, idx *index.SpecInd
 		return eErr
 	}
 	if hooks != nil {
-		doc.Webhooks = low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*PathItem]]{
+		doc.Webhooks = low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[*PathItem]]]{
 			Value:     hooks,
 			KeyNode:   hooksL,
 			ValueNode: hooksN,

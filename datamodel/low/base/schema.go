@@ -11,6 +11,7 @@ import (
 	"github.com/pb33f/libopenapi/datamodel/low"
 	"github.com/pb33f/libopenapi/index"
 	"github.com/pb33f/libopenapi/utils"
+	"github.com/pb33f/libopenapi/utils/typex"
 	"gopkg.in/yaml.v3"
 )
 
@@ -96,8 +97,8 @@ type Schema struct {
 	If                    low.NodeReference[*SchemaProxy]
 	Else                  low.NodeReference[*SchemaProxy]
 	Then                  low.NodeReference[*SchemaProxy]
-	DependentSchemas      low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*SchemaProxy]]
-	PatternProperties     low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*SchemaProxy]]
+	DependentSchemas      low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[*SchemaProxy]]]
+	PatternProperties     low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[*SchemaProxy]]]
 	PropertyNames         low.NodeReference[*SchemaProxy]
 	UnevaluatedItems      low.NodeReference[*SchemaProxy]
 	UnevaluatedProperties low.NodeReference[*SchemaDynamicValue[*SchemaProxy, *bool]]
@@ -120,7 +121,7 @@ type Schema struct {
 	Required             low.NodeReference[[]low.ValueReference[string]]
 	Enum                 low.NodeReference[[]low.ValueReference[any]]
 	Not                  low.NodeReference[*SchemaProxy]
-	Properties           low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*SchemaProxy]]
+	Properties           low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[*SchemaProxy]]]
 	AdditionalProperties low.NodeReference[any]
 	Description          low.NodeReference[string]
 	ContentEncoding      low.NodeReference[string]
@@ -133,7 +134,7 @@ type Schema struct {
 	ExternalDocs         low.NodeReference[*ExternalDoc]
 	Example              low.NodeReference[any]
 	Deprecated           low.NodeReference[bool]
-	Extensions           map[low.KeyReference[string]]low.ValueReference[any]
+	Extensions           typex.Pairs[low.KeyReference[string], low.ValueReference[any]]
 
 	// Parent Proxy refers back to the low level SchemaProxy that is proxying this schema.
 	ParentProxy *SchemaProxy
@@ -284,28 +285,15 @@ func (s *Schema) Hash() [32]byte {
 		d = append(d, strings.Join(j, "|"))
 	}
 
-	keys := make([]string, len(s.Required.Value))
-	for i := range s.Required.Value {
-		keys[i] = s.Required.Value[i].Value
-	}
-	sort.Strings(keys)
-	d = append(d, keys...)
-
-	keys = make([]string, len(s.Enum.Value))
-	for i := range s.Enum.Value {
-		keys[i] = fmt.Sprint(s.Enum.Value[i].Value)
-	}
-	sort.Strings(keys)
-	d = append(d, keys...)
+	d = append(d, low.ReferenceListValues(s.Required.Value)...)
+	d = append(d, low.ReferenceListValues(s.Enum.Value)...)
 
 	for i := range s.Enum.Value {
 		d = append(d, fmt.Sprint(s.Enum.Value[i].Value))
 	}
 	propKeys := make([]string, len(s.Properties.Value))
-	z := 0
-	for i := range s.Properties.Value {
-		propKeys[z] = i.Value
-		z++
+	for i, p := range s.Properties.Value {
+		propKeys[i] = p.Key.Value
 	}
 	sort.Strings(propKeys)
 	for k := range propKeys {
@@ -325,14 +313,11 @@ func (s *Schema) Hash() [32]byte {
 	if len(s.OneOf.Value) > 0 {
 		oneOfKeys := make([]string, len(s.OneOf.Value))
 		oneOfEntities := make(map[string]*SchemaProxy)
-		z = 0
 		for i := range s.OneOf.Value {
 			g := s.OneOf.Value[i].Value
 			r := low.GenerateHashString(g)
 			oneOfEntities[r] = g
-			oneOfKeys[z] = r
-			z++
-
+			oneOfKeys[i] = r
 		}
 		sort.Strings(oneOfKeys)
 		for k := range oneOfKeys {
@@ -343,14 +328,11 @@ func (s *Schema) Hash() [32]byte {
 	if len(s.AllOf.Value) > 0 {
 		allOfKeys := make([]string, len(s.AllOf.Value))
 		allOfEntities := make(map[string]*SchemaProxy)
-		z = 0
 		for i := range s.AllOf.Value {
 			g := s.AllOf.Value[i].Value
 			r := low.GenerateHashString(g)
 			allOfEntities[r] = g
-			allOfKeys[z] = r
-			z++
-
+			allOfKeys[i] = r
 		}
 		sort.Strings(allOfKeys)
 		for k := range allOfKeys {
@@ -361,14 +343,11 @@ func (s *Schema) Hash() [32]byte {
 	if len(s.AnyOf.Value) > 0 {
 		anyOfKeys := make([]string, len(s.AnyOf.Value))
 		anyOfEntities := make(map[string]*SchemaProxy)
-		z = 0
 		for i := range s.AnyOf.Value {
 			g := s.AnyOf.Value[i].Value
 			r := low.GenerateHashString(g)
 			anyOfEntities[r] = g
-			anyOfKeys[z] = r
-			z++
-
+			anyOfKeys[i] = r
 		}
 		sort.Strings(anyOfKeys)
 		for k := range anyOfKeys {
@@ -411,10 +390,8 @@ func (s *Schema) Hash() [32]byte {
 	}
 
 	depSchemasKeys := make([]string, len(s.DependentSchemas.Value))
-	z = 0
-	for i := range s.DependentSchemas.Value {
-		depSchemasKeys[z] = i.Value
-		z++
+	for i, p := range s.DependentSchemas.Value {
+		depSchemasKeys[i] = p.Key.Value
 	}
 	sort.Strings(depSchemasKeys)
 	for k := range depSchemasKeys {
@@ -422,10 +399,8 @@ func (s *Schema) Hash() [32]byte {
 	}
 
 	patternPropsKeys := make([]string, len(s.PatternProperties.Value))
-	z = 0
-	for i := range s.PatternProperties.Value {
-		patternPropsKeys[z] = i.Value
-		z++
+	for i, p := range s.PatternProperties.Value {
+		patternPropsKeys[i] = p.Key.Value
 	}
 	sort.Strings(patternPropsKeys)
 	for k := range patternPropsKeys {
@@ -435,13 +410,11 @@ func (s *Schema) Hash() [32]byte {
 	if len(s.PrefixItems.Value) > 0 {
 		itemsKeys := make([]string, len(s.PrefixItems.Value))
 		itemsEntities := make(map[string]*SchemaProxy)
-		z = 0
 		for i := range s.PrefixItems.Value {
 			g := s.PrefixItems.Value[i].Value
 			r := low.GenerateHashString(g)
 			itemsEntities[r] = g
-			itemsKeys[z] = r
-			z++
+			itemsKeys[i] = r
 		}
 		sort.Strings(itemsKeys)
 		for k := range itemsKeys {
@@ -450,14 +423,7 @@ func (s *Schema) Hash() [32]byte {
 	}
 
 	// add extensions to hash
-	keys = make([]string, len(s.Extensions))
-	z = 0
-	for k := range s.Extensions {
-		keys[z] = fmt.Sprintf("%s-%x", k.Value, sha256.Sum256([]byte(fmt.Sprint(s.Extensions[k].Value))))
-		z++
-	}
-	sort.Strings(keys)
-	d = append(d, keys...)
+	d = append(d, low.GenerateReferencePairsHashes(s.Extensions)...)
 	if s.Example.Value != nil {
 		d = append(d, low.GenerateHashString(s.Example.Value))
 	}
@@ -502,7 +468,7 @@ func (s *Schema) FindPatternProperty(name string) *low.ValueReference[*SchemaPro
 }
 
 // GetExtensions returns all extensions for Schema
-func (s *Schema) GetExtensions() map[low.KeyReference[string]]low.ValueReference[any] {
+func (s *Schema) GetExtensions() typex.Pairs[low.KeyReference[string], low.ValueReference[any]] {
 	return s.Extensions
 }
 
@@ -1065,7 +1031,7 @@ func (s *Schema) Build(root *yaml.Node, idx *index.SpecIndex) error {
 	return nil
 }
 
-func buildPropertyMap(root *yaml.Node, idx *index.SpecIndex, label string) (*low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*SchemaProxy]], error) {
+func buildPropertyMap(root *yaml.Node, idx *index.SpecIndex, label string) (*low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[*SchemaProxy]]], error) {
 	// for property, build in a new thread!
 	bChan := make(chan schemaProxyBuildResult)
 
@@ -1086,7 +1052,7 @@ func buildPropertyMap(root *yaml.Node, idx *index.SpecIndex, label string) (*low
 
 	_, propLabel, propsNode := utils.FindKeyNodeFullTop(label, root.Content)
 	if propsNode != nil {
-		propertyMap := make(map[low.KeyReference[string]]low.ValueReference[*SchemaProxy])
+		propertyMap := make(typex.Pairs[low.KeyReference[string], low.ValueReference[*SchemaProxy]], 0)
 		var currentProp *yaml.Node
 		totalProps := 0
 		for i, prop := range propsNode.Content {
@@ -1117,10 +1083,10 @@ func buildPropertyMap(root *yaml.Node, idx *index.SpecIndex, label string) (*low
 			select {
 			case res := <-bChan:
 				completedProps++
-				propertyMap[res.k] = res.v
+				propertyMap.Push(res.k, res.v)
 			}
 		}
-		return &low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*SchemaProxy]]{
+		return &low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[*SchemaProxy]]]{
 			Value:     propertyMap,
 			KeyNode:   propLabel,
 			ValueNode: propsNode,

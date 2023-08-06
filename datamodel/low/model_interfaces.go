@@ -3,6 +3,8 @@
 
 package low
 
+import "github.com/pb33f/libopenapi/utils/typex"
+
 type SharedParameters interface {
 	HasDescription
 	Hash() [32]byte
@@ -104,7 +106,7 @@ type SharedOperations interface {
 	GetTags() NodeReference[[]ValueReference[string]]
 	GetSummary() NodeReference[string]
 	GetDeprecated() NodeReference[bool]
-	GetExtensions() map[KeyReference[string]]ValueReference[any]
+	GetExtensions() typex.Pairs[KeyReference[string], ValueReference[any]]
 	GetResponses() NodeReference[any]  // requires cast.
 	GetParameters() NodeReference[any] // requires cast.
 	GetSecurity() NodeReference[any]   // requires cast.
@@ -119,6 +121,6 @@ type SwaggerOperations interface {
 
 type OpenAPIOperations interface {
 	SharedOperations
-	GetCallbacks() NodeReference[map[KeyReference[string]]ValueReference[any]] // requires cast
-	GetServers() NodeReference[any]                                            // requires cast.
+	GetCallbacks() NodeReference[typex.Pairs[KeyReference[string], ValueReference[any]]] // requires cast
+	GetServers() NodeReference[any]                                                      // requires cast.
 }

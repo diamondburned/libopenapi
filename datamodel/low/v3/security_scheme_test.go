@@ -4,12 +4,13 @@
 package v3
 
 import (
+	"testing"
+
 	"github.com/pb33f/libopenapi/datamodel/low"
 	"github.com/pb33f/libopenapi/datamodel/low/base"
 	"github.com/pb33f/libopenapi/index"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
-	"testing"
 )
 
 func TestSecurityRequirement_Build(t *testing.T) {
@@ -58,7 +59,7 @@ x-milk: please`
 	err = n.Build(idxNode.Content[0], idx)
 	assert.NoError(t, err)
 
-	assert.Equal(t, "0b5ee36519fdfc6383c7befd92294d77b5799cd115911ff8c3e194f345a8c103",
+	assert.Equal(t, "895c93786f68cc69f04280e94e81453699cc183b02cb141ba85702b8c9d8efef",
 		low.GenerateHashString(&n))
 
 	assert.Equal(t, "tea", n.Type.Value)

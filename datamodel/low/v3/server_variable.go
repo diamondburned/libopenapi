@@ -3,9 +3,10 @@ package v3
 import (
 	"crypto/sha256"
 	"fmt"
-	"github.com/pb33f/libopenapi/datamodel/low"
 	"sort"
 	"strings"
+
+	"github.com/pb33f/libopenapi/datamodel/low"
 )
 
 // ServerVariable represents a low-level OpenAPI 3+ ServerVariable object.

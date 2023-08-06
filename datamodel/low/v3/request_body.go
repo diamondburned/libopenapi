@@ -6,21 +6,22 @@ package v3
 import (
 	"crypto/sha256"
 	"fmt"
+	"strings"
+
 	"github.com/pb33f/libopenapi/datamodel/low"
 	"github.com/pb33f/libopenapi/index"
 	"github.com/pb33f/libopenapi/utils"
+	"github.com/pb33f/libopenapi/utils/typex"
 	"gopkg.in/yaml.v3"
-	"sort"
-	"strings"
 )
 
 // RequestBody represents a low-level OpenAPI 3+ RequestBody object.
 //   - https://spec.openapis.org/oas/v3.1.0#request-body-object
 type RequestBody struct {
 	Description low.NodeReference[string]
-	Content     low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*MediaType]]
+	Content     low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[*MediaType]]]
 	Required    low.NodeReference[bool]
-	Extensions  map[low.KeyReference[string]]low.ValueReference[any]
+	Extensions  typex.Pairs[low.KeyReference[string], low.ValueReference[any]]
 	*low.Reference
 }
 
@@ -30,7 +31,7 @@ func (rb *RequestBody) FindExtension(ext string) *low.ValueReference[any] {
 }
 
 // GetExtensions returns all RequestBody extensions and satisfies the low.HasExtensions interface.
-func (rb *RequestBody) GetExtensions() map[low.KeyReference[string]]low.ValueReference[any] {
+func (rb *RequestBody) GetExtensions() typex.Pairs[low.KeyReference[string], low.ValueReference[any]] {
 	return rb.Extensions
 }
 
@@ -52,7 +53,7 @@ func (rb *RequestBody) Build(root *yaml.Node, idx *index.SpecIndex) error {
 		return cErr
 	}
 	if con != nil {
-		rb.Content = low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*MediaType]]{
+		rb.Content = low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[*MediaType]]]{
 			Value:     con,
 			KeyNode:   cL,
 			ValueNode: cN,
@@ -70,18 +71,7 @@ func (rb *RequestBody) Hash() [32]byte {
 	if !rb.Required.IsEmpty() {
 		f = append(f, fmt.Sprint(rb.Required.Value))
 	}
-	for k := range rb.Content.Value {
-		f = append(f, low.GenerateHashString(rb.Content.Value[k].Value))
-	}
-
-	keys := make([]string, len(rb.Extensions))
-	z := 0
-	for k := range rb.Extensions {
-		keys[z] = fmt.Sprintf("%s-%x", k.Value, sha256.Sum256([]byte(fmt.Sprint(rb.Extensions[k].Value))))
-		z++
-	}
-	sort.Strings(keys)
-	f = append(f, keys...)
-
+	f = append(f, low.GenerateReferencePairsHashes(rb.Content.Value)...)
+	f = append(f, low.GenerateReferencePairsHashes(rb.Extensions)...)
 	return sha256.Sum256([]byte(strings.Join(f, "|")))
 }

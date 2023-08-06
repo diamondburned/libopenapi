@@ -6,13 +6,14 @@ package base
 import (
 	"crypto/sha256"
 	"fmt"
+	"strconv"
+	"strings"
+
 	"github.com/pb33f/libopenapi/datamodel/low"
 	"github.com/pb33f/libopenapi/index"
 	"github.com/pb33f/libopenapi/utils"
+	"github.com/pb33f/libopenapi/utils/typex"
 	"gopkg.in/yaml.v3"
-	"sort"
-	"strconv"
-	"strings"
 )
 
 // Example represents a low-level Example object as defined by OpenAPI 3+
@@ -23,7 +24,7 @@ type Example struct {
 	Description   low.NodeReference[string]
 	Value         low.NodeReference[any]
 	ExternalValue low.NodeReference[string]
-	Extensions    map[low.KeyReference[string]]low.ValueReference[any]
+	Extensions    typex.Pairs[low.KeyReference[string], low.ValueReference[any]]
 	*low.Reference
 }
 
@@ -48,14 +49,7 @@ func (ex *Example) Hash() [32]byte {
 	if ex.ExternalValue.Value != "" {
 		f = append(f, ex.ExternalValue.Value)
 	}
-	keys := make([]string, len(ex.Extensions))
-	z := 0
-	for k := range ex.Extensions {
-		keys[z] = fmt.Sprintf("%s-%x", k.Value, sha256.Sum256([]byte(fmt.Sprint(ex.Extensions[k].Value))))
-		z++
-	}
-	sort.Strings(keys)
-	f = append(f, keys...)
+	f = append(f, low.GenerateReferencePairsHashes(ex.Extensions)...)
 	return sha256.Sum256([]byte(strings.Join(f, "|")))
 }
 
@@ -103,7 +97,7 @@ func (ex *Example) Build(root *yaml.Node, idx *index.SpecIndex) error {
 }
 
 // GetExtensions will return Example extensions to satisfy the HasExtensions interface.
-func (ex *Example) GetExtensions() map[low.KeyReference[string]]low.ValueReference[any] {
+func (ex *Example) GetExtensions() typex.Pairs[low.KeyReference[string], low.ValueReference[any]] {
 	return ex.Extensions
 }
 

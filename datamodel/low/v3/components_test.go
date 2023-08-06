@@ -4,11 +4,12 @@
 package v3
 
 import (
+	"testing"
+
 	"github.com/pb33f/libopenapi/datamodel/low"
 	"github.com/pb33f/libopenapi/index"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
-	"testing"
 )
 
 var testComponentsYaml = `
@@ -98,7 +99,7 @@ func TestComponents_Build_Success(t *testing.T) {
 	assert.Equal(t, "eighteen of many",
 		n.FindCallback("eighteen").Value.FindExpression("{raference}").Value.Post.Value.Description.Value)
 
-	assert.Equal(t, "7add1a6c63a354b1a8ffe22552c213fe26d1229beb0b0cbe7c7ca06e63f9a364",
+	assert.Equal(t, "fbc74b34459f4f132fb8e181d480abf92b135fb6bbff6c0b2f83795642ad5d97",
 		low.GenerateHashString(&n))
 
 }
@@ -222,7 +223,7 @@ func TestComponents_Build_HashEmpty(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "seagull", n.FindExtension("x-curry").Value)
 	assert.Len(t, n.GetExtensions(), 1)
-	assert.Equal(t, "9cf2c6ab3f9ff7e5231fcb391c8af5c47406711d2ca366533f21a8bb2f67edfe",
+	assert.Equal(t, "d49902c00aa0aae86a809f4121f8df38bf38a3c5b37b0230378780088096379b",
 		low.GenerateHashString(&n))
 
 }

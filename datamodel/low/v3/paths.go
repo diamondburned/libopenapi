@@ -6,12 +6,12 @@ package v3
 import (
 	"crypto/sha256"
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/pb33f/libopenapi/datamodel/low"
 	"github.com/pb33f/libopenapi/index"
 	"github.com/pb33f/libopenapi/utils"
+	"github.com/pb33f/libopenapi/utils/typex"
 	"gopkg.in/yaml.v3"
 )
 
@@ -22,14 +22,16 @@ import (
 // constraints.
 //   - https://spec.openapis.org/oas/v3.1.0#paths-object
 type Paths struct {
-	PathItems  map[low.KeyReference[string]]low.ValueReference[*PathItem]
-	Extensions map[low.KeyReference[string]]low.ValueReference[any]
+	PathItems  typex.Pairs[low.KeyReference[string], low.ValueReference[*PathItem]]
+	Extensions typex.Pairs[low.KeyReference[string], low.ValueReference[any]]
 	*low.Reference
 }
 
 // FindPath will attempt to locate a PathItem using the provided path string.
 func (p *Paths) FindPath(path string) *low.ValueReference[*PathItem] {
-	for k, j := range p.PathItems {
+	for _, p := range p.PathItems {
+		k := p.Key
+		j := p.Value
 		if k.Value == path {
 			return &j
 		}
@@ -39,7 +41,9 @@ func (p *Paths) FindPath(path string) *low.ValueReference[*PathItem] {
 
 // FindPathAndKey attempts to locate a PathItem instance, given a path key.
 func (p *Paths) FindPathAndKey(path string) (*low.KeyReference[string], *low.ValueReference[*PathItem]) {
-	for k, j := range p.PathItems {
+	for _, p := range p.PathItems {
+		k := p.Key
+		j := p.Value
 		if k.Value == path {
 			return &k, &j
 		}
@@ -53,7 +57,7 @@ func (p *Paths) FindExtension(ext string) *low.ValueReference[any] {
 }
 
 // GetExtensions returns all Paths extensions and satisfies the low.HasExtensions interface.
-func (p *Paths) GetExtensions() map[low.KeyReference[string]]low.ValueReference[any] {
+func (p *Paths) GetExtensions() typex.Pairs[low.KeyReference[string], low.ValueReference[any]] {
 	return p.Extensions
 }
 
@@ -66,7 +70,7 @@ func (p *Paths) Build(root *yaml.Node, idx *index.SpecIndex) error {
 	skip := false
 	var currentNode *yaml.Node
 
-	pathsMap := make(map[low.KeyReference[string]]low.ValueReference[*PathItem])
+	pathsMap := make(typex.Pairs[low.KeyReference[string], low.ValueReference[*PathItem]], 0)
 
 	// build each new path, in a new thread.
 	type pathBuildResult struct {
@@ -144,7 +148,7 @@ func (p *Paths) Build(root *yaml.Node, idx *index.SpecIndex) error {
 			return err
 		case res := <-bChan:
 			completedItems++
-			pathsMap[res.k] = res.v
+			pathsMap.Push(res.k, res.v)
 		}
 	}
 	p.PathItems = pathsMap
@@ -154,25 +158,7 @@ func (p *Paths) Build(root *yaml.Node, idx *index.SpecIndex) error {
 // Hash will return a consistent SHA256 Hash of the PathItem object
 func (p *Paths) Hash() [32]byte {
 	var f []string
-	l := make([]string, len(p.PathItems))
-	keys := make(map[string]low.ValueReference[*PathItem])
-	z := 0
-	for k := range p.PathItems {
-		keys[k.Value] = p.PathItems[k]
-		l[z] = k.Value
-		z++
-	}
-	sort.Strings(l)
-	for k := range l {
-		f = append(f, fmt.Sprintf("%s-%s", l[k], low.GenerateHashString(keys[l[k]].Value)))
-	}
-	ekeys := make([]string, len(p.Extensions))
-	z = 0
-	for k := range p.Extensions {
-		ekeys[z] = fmt.Sprintf("%s-%x", k.Value, sha256.Sum256([]byte(fmt.Sprint(p.Extensions[k].Value))))
-		z++
-	}
-	sort.Strings(ekeys)
-	f = append(f, ekeys...)
+	f = append(f, low.GenerateReferencePairsHashes(p.PathItems)...)
+	f = append(f, low.GenerateReferencePairsHashes(p.Extensions)...)
 	return sha256.Sum256([]byte(strings.Join(f, "|")))
 }

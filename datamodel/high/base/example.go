@@ -7,6 +7,7 @@ import (
 	"github.com/pb33f/libopenapi/datamodel/high"
 	lowmodel "github.com/pb33f/libopenapi/datamodel/low"
 	low "github.com/pb33f/libopenapi/datamodel/low/base"
+	"github.com/pb33f/libopenapi/utils/typex"
 	"gopkg.in/yaml.v3"
 )
 
@@ -14,11 +15,11 @@ import (
 //
 //	v3 - https://spec.openapis.org/oas/v3.1.0#example-object
 type Example struct {
-	Summary       string         `json:"summary,omitempty" yaml:"summary,omitempty"`
-	Description   string         `json:"description,omitempty" yaml:"description,omitempty"`
-	Value         any            `json:"value,omitempty" yaml:"value,omitempty"`
-	ExternalValue string         `json:"externalValue,omitempty" yaml:"externalValue,omitempty"`
-	Extensions    map[string]any `json:"-" yaml:"-"`
+	Summary       string                   `json:"summary,omitempty" yaml:"summary,omitempty"`
+	Description   string                   `json:"description,omitempty" yaml:"description,omitempty"`
+	Value         any                      `json:"value,omitempty" yaml:"value,omitempty"`
+	ExternalValue string                   `json:"externalValue,omitempty" yaml:"externalValue,omitempty"`
+	Extensions    typex.Pairs[string, any] `json:"-" yaml:"-"`
 	low           *low.Example
 }
 
@@ -57,10 +58,11 @@ func (e *Example) MarshalYAML() (interface{}, error) {
 
 // ExtractExamples will convert a low-level example map, into a high level one that is simple to navigate.
 // no fidelity is lost, everything is still available via GoLow()
-func ExtractExamples(elements map[lowmodel.KeyReference[string]]lowmodel.ValueReference[*low.Example]) map[string]*Example {
-	extracted := make(map[string]*Example)
-	for k, v := range elements {
-		extracted[k.Value] = NewExample(v.Value)
+func ExtractExamples(elements typex.Pairs[lowmodel.KeyReference[string], lowmodel.ValueReference[*low.Example]]) typex.Pairs[string, *Example] {
+	extracted := make(typex.Pairs[string, *Example], 0, len(elements))
+	for _, p := range elements {
+		k, v := p.Key, p.Value
+		extracted.Push(k.Value, NewExample(v.Value))
 	}
 	return extracted
 }

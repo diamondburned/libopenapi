@@ -6,19 +6,23 @@ package low
 import (
 	"crypto/sha256"
 	"fmt"
-	"github.com/pb33f/libopenapi/index"
-	"github.com/pb33f/libopenapi/utils"
-	"github.com/vmware-labs/yaml-jsonpath/pkg/yamlpath"
-	"gopkg.in/yaml.v3"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/pb33f/libopenapi/index"
+	"github.com/pb33f/libopenapi/utils"
+	"github.com/pb33f/libopenapi/utils/typex"
+	"github.com/vmware-labs/yaml-jsonpath/pkg/yamlpath"
+	"gopkg.in/yaml.v3"
 )
 
 // FindItemInMap accepts a string key and a collection of KeyReference[string] and ValueReference[T]. Every
 // KeyReference will have its value checked against the string key and if there is a match, it will be returned.
-func FindItemInMap[T any](item string, collection map[KeyReference[string]]ValueReference[T]) *ValueReference[T] {
-	for n, o := range collection {
+func FindItemInMap[T any](item string, collection typex.Pairs[KeyReference[string], ValueReference[T]]) *ValueReference[T] {
+	for _, p := range collection {
+		n, o := p.Key, p.Value
 		if n.Value == item {
 			return &o
 		}
@@ -366,8 +370,8 @@ func ExtractMapNoLookupExtensions[PT Buildable[N], N any](
 	root *yaml.Node,
 	idx *index.SpecIndex,
 	includeExtensions bool,
-) (map[KeyReference[string]]ValueReference[PT], error) {
-	valueMap := make(map[KeyReference[string]]ValueReference[PT])
+) (typex.Pairs[KeyReference[string], ValueReference[PT]], error) {
+	valueMap := make(typex.Pairs[KeyReference[string], ValueReference[PT]], 0)
 	var circError error
 	if utils.IsNodeMap(root) {
 		var currentKey *yaml.Node
@@ -431,15 +435,15 @@ func ExtractMapNoLookupExtensions[PT Buildable[N], N any](
 				SetReference(n, referenceValue)
 			}
 			if currentKey != nil {
-				valueMap[KeyReference[string]{
+				valueMap.Push(KeyReference[string]{
 					Value:   currentKey.Value,
 					KeyNode: currentKey,
-				}] = ValueReference[PT]{
+				}, ValueReference[PT]{
 					Value:     n,
 					ValueNode: node,
 					//IsReference: isReference,
 					Reference: referenceValue,
-				}
+				})
 			}
 		}
 	}
@@ -458,7 +462,7 @@ func ExtractMapNoLookupExtensions[PT Buildable[N], N any](
 func ExtractMapNoLookup[PT Buildable[N], N any](
 	root *yaml.Node,
 	idx *index.SpecIndex,
-) (map[KeyReference[string]]ValueReference[PT], error) {
+) (typex.Pairs[KeyReference[string], ValueReference[PT]], error) {
 	return ExtractMapNoLookupExtensions[PT, N](root, idx, false)
 }
 
@@ -478,7 +482,7 @@ func ExtractMapExtensions[PT Buildable[N], N any](
 	root *yaml.Node,
 	idx *index.SpecIndex,
 	extensions bool,
-) (map[KeyReference[string]]ValueReference[PT], *yaml.Node, *yaml.Node, error) {
+) (typex.Pairs[KeyReference[string], ValueReference[PT]], *yaml.Node, *yaml.Node, error) {
 	//var isReference bool
 	var referenceValue string
 	var labelNode, valueNode *yaml.Node
@@ -522,7 +526,7 @@ func ExtractMapExtensions[PT Buildable[N], N any](
 	}
 	if valueNode != nil {
 		var currentLabelNode *yaml.Node
-		valueMap := make(map[KeyReference[string]]ValueReference[PT])
+		valueMap := make(typex.Pairs[KeyReference[string], ValueReference[PT]], 0)
 
 		bChan := make(chan mappingResult[PT])
 		eChan := make(chan error)
@@ -598,7 +602,7 @@ func ExtractMapExtensions[PT Buildable[N], N any](
 				return valueMap, labelNode, valueNode, err
 			case res := <-bChan:
 				completedKeys++
-				valueMap[res.k] = res.v
+				valueMap.Push(res.k, res.v)
 			}
 		}
 		if circError != nil && !idx.AllowCircularReferenceResolving() {
@@ -618,7 +622,7 @@ func ExtractMap[PT Buildable[N], N any](
 	label string,
 	root *yaml.Node,
 	idx *index.SpecIndex,
-) (map[KeyReference[string]]ValueReference[PT], *yaml.Node, *yaml.Node, error) {
+) (typex.Pairs[KeyReference[string], ValueReference[PT]], *yaml.Node, *yaml.Node, error) {
 	return ExtractMapExtensions[PT, N](label, root, idx, false)
 }
 
@@ -635,53 +639,53 @@ func ExtractMap[PT Buildable[N], N any](
 // int, float, bool, string
 //
 //	int64, float64, bool, string
-func ExtractExtensions(root *yaml.Node) map[KeyReference[string]]ValueReference[any] {
+func ExtractExtensions(root *yaml.Node) typex.Pairs[KeyReference[string], ValueReference[any]] {
 	root = utils.NodeAlias(root)
 	extensions := utils.FindExtensionNodes(root.Content)
-	extensionMap := make(map[KeyReference[string]]ValueReference[any])
+	extensionMap := make(typex.Pairs[KeyReference[string], ValueReference[any]], 0, len(extensions))
 	for _, ext := range extensions {
 		if utils.IsNodeMap(ext.Value) {
 			var v interface{}
 			_ = ext.Value.Decode(&v)
-			extensionMap[KeyReference[string]{
+			extensionMap.Push(KeyReference[string]{
 				Value:   ext.Key.Value,
 				KeyNode: ext.Key,
-			}] = ValueReference[any]{Value: v, ValueNode: ext.Value}
+			}, ValueReference[any]{Value: v, ValueNode: ext.Value})
 		}
 		if utils.IsNodeStringValue(ext.Value) {
-			extensionMap[KeyReference[string]{
+			extensionMap.Push(KeyReference[string]{
 				Value:   ext.Key.Value,
 				KeyNode: ext.Key,
-			}] = ValueReference[any]{Value: ext.Value.Value, ValueNode: ext.Value}
+			}, ValueReference[any]{Value: ext.Value.Value, ValueNode: ext.Value})
 		}
 		if utils.IsNodeFloatValue(ext.Value) {
 			fv, _ := strconv.ParseFloat(ext.Value.Value, 64)
-			extensionMap[KeyReference[string]{
+			extensionMap.Push(KeyReference[string]{
 				Value:   ext.Key.Value,
 				KeyNode: ext.Key,
-			}] = ValueReference[any]{Value: fv, ValueNode: ext.Value}
+			}, ValueReference[any]{Value: fv, ValueNode: ext.Value})
 		}
 		if utils.IsNodeIntValue(ext.Value) {
 			iv, _ := strconv.ParseInt(ext.Value.Value, 10, 64)
-			extensionMap[KeyReference[string]{
+			extensionMap.Push(KeyReference[string]{
 				Value:   ext.Key.Value,
 				KeyNode: ext.Key,
-			}] = ValueReference[any]{Value: iv, ValueNode: ext.Value}
+			}, ValueReference[any]{Value: iv, ValueNode: ext.Value})
 		}
 		if utils.IsNodeBoolValue(ext.Value) {
 			bv, _ := strconv.ParseBool(ext.Value.Value)
-			extensionMap[KeyReference[string]{
+			extensionMap.Push(KeyReference[string]{
 				Value:   ext.Key.Value,
 				KeyNode: ext.Key,
-			}] = ValueReference[any]{Value: bv, ValueNode: ext.Value}
+			}, ValueReference[any]{Value: bv, ValueNode: ext.Value})
 		}
 		if utils.IsNodeArray(ext.Value) {
 			var v []interface{}
 			_ = ext.Value.Decode(&v)
-			extensionMap[KeyReference[string]{
+			extensionMap.Push(KeyReference[string]{
 				Value:   ext.Key.Value,
 				KeyNode: ext.Key,
-			}] = ValueReference[any]{Value: v, ValueNode: ext.Value}
+			}, ValueReference[any]{Value: v, ValueNode: ext.Value})
 		}
 	}
 	return extensionMap
@@ -708,4 +712,39 @@ func GenerateHashString(v any) string {
 		v = reflect.ValueOf(v).Elem().Interface()
 	}
 	return fmt.Sprintf(HASH, sha256.Sum256([]byte(fmt.Sprint(v))))
+}
+
+// GenerateReferencePairsHashes is a helper function that will return a slice of strings that
+// represent the pairs in a Pairs object. This is useful when you want to hash a Pairs object.
+func GenerateReferencePairsHashes[T any](pairs typex.Pairs[KeyReference[string], ValueReference[T]]) []string {
+	keys := make([]string, len(pairs))
+	for i, p := range pairs {
+		keys[i] = fmt.Sprintf("%s-%x", p.Key.Value, GenerateHashString(p.Value.Value))
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+// GenerateReferenceListHashes is a helper function that will return a slice of strings that
+// represent the values in a ValueReference slice. This is useful when you want to hash
+// a ValueReference slice.
+func GenerateReferenceListHashes[T any](list []ValueReference[T]) []string {
+	keys := make([]string, len(list))
+	for i, p := range list {
+		keys[i] = GenerateHashString(p.Value)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+// ReferenceListValues is a helper function that will return a slice of strings that
+// represent the values in a ValueReference slice. This is useful when you want to hash
+// a ValueReference slice.
+func ReferenceListValues[T any](list []ValueReference[T]) []string {
+	keys := make([]string, len(list))
+	for i, p := range list {
+		keys[i] = fmt.Sprint(p.Value)
+	}
+	sort.Strings(keys)
+	return keys
 }

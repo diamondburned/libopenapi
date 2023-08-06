@@ -6,6 +6,7 @@ package base
 import (
 	"github.com/pb33f/libopenapi/datamodel/high"
 	low "github.com/pb33f/libopenapi/datamodel/low/base"
+	"github.com/pb33f/libopenapi/utils/typex"
 	"gopkg.in/yaml.v3"
 )
 
@@ -24,7 +25,7 @@ type Info struct {
 	Contact        *Contact `json:"contact,omitempty" yaml:"contact,omitempty"`
 	License        *License `json:"license,omitempty" yaml:"license,omitempty"`
 	Version        string   `json:"version,omitempty" yaml:"version,omitempty"`
-	Extensions     map[string]any
+	Extensions     typex.Pairs[string, any]
 	low            *low.Info
 }
 

@@ -6,6 +6,7 @@ package base
 import (
 	"github.com/pb33f/libopenapi/datamodel/high"
 	low "github.com/pb33f/libopenapi/datamodel/low/base"
+	"github.com/pb33f/libopenapi/utils/typex"
 	"gopkg.in/yaml.v3"
 )
 
@@ -19,7 +20,7 @@ type Tag struct {
 	Name         string       `json:"name,omitempty" yaml:"name,omitempty"`
 	Description  string       `json:"description,omitempty" yaml:"description,omitempty"`
 	ExternalDocs *ExternalDoc `json:"externalDocs,omitempty" yaml:"externalDocs,omitempty"`
-	Extensions   map[string]any
+	Extensions   typex.Pairs[string, any]
 	low          *low.Tag
 }
 

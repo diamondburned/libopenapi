@@ -35,7 +35,7 @@ x-hack: code`
 	assert.Equal(t, "chicken", highTag.Name)
 	assert.Equal(t, "nuggets", highTag.Description)
 	assert.Equal(t, "https://pb33f.io", highTag.ExternalDocs.URL)
-	assert.Equal(t, "code", highTag.Extensions["x-hack"])
+	assert.Equal(t, "code", highTag.Extensions.Getz("x-hack"))
 
 	wentLow := highTag.GoLow()
 	assert.Equal(t, 5, wentLow.FindExtension("x-hack").ValueNode.Line)

@@ -5,12 +5,13 @@ package v3
 
 import (
 	"crypto/sha256"
+	"strings"
+
 	"github.com/pb33f/libopenapi/datamodel/low"
 	"github.com/pb33f/libopenapi/index"
 	"github.com/pb33f/libopenapi/utils"
+	"github.com/pb33f/libopenapi/utils/typex"
 	"gopkg.in/yaml.v3"
-	"sort"
-	"strings"
 )
 
 // Server represents a low-level OpenAPI 3+ Server object.
@@ -18,13 +19,13 @@ import (
 type Server struct {
 	URL         low.NodeReference[string]
 	Description low.NodeReference[string]
-	Variables   low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*ServerVariable]]
-	Extensions  map[low.KeyReference[string]]low.ValueReference[any]
+	Variables   low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[*ServerVariable]]]
+	Extensions  typex.Pairs[low.KeyReference[string], low.ValueReference[any]]
 	*low.Reference
 }
 
 // GetExtensions returns all Paths extensions and satisfies the low.HasExtensions interface.
-func (s *Server) GetExtensions() map[low.KeyReference[string]]low.ValueReference[any] {
+func (s *Server) GetExtensions() typex.Pairs[low.KeyReference[string], low.ValueReference[any]] {
 	return s.Extensions
 }
 
@@ -43,7 +44,7 @@ func (s *Server) Build(root *yaml.Node, idx *index.SpecIndex) error {
 	if vars == nil {
 		return nil
 	}
-	variablesMap := make(map[low.KeyReference[string]]low.ValueReference[*ServerVariable])
+	variablesMap := make(typex.Pairs[low.KeyReference[string], low.ValueReference[*ServerVariable]], 0, len(vars.Content))
 	if utils.IsNodeMap(vars) {
 		var currentNode string
 		var keyNode *yaml.Node
@@ -56,15 +57,15 @@ func (s *Server) Build(root *yaml.Node, idx *index.SpecIndex) error {
 			variable := ServerVariable{}
 			variable.Reference = new(low.Reference)
 			_ = low.BuildModel(varNode, &variable)
-			variablesMap[low.KeyReference[string]{
+			variablesMap.Push(low.KeyReference[string]{
 				Value:   currentNode,
 				KeyNode: keyNode,
-			}] = low.ValueReference[*ServerVariable]{
+			}, low.ValueReference[*ServerVariable]{
 				ValueNode: varNode,
 				Value:     &variable,
-			}
+			})
 		}
-		s.Variables = low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*ServerVariable]]{
+		s.Variables = low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[*ServerVariable]]]{
 			KeyNode:   kn,
 			ValueNode: vars,
 			Value:     variablesMap,
@@ -76,14 +77,7 @@ func (s *Server) Build(root *yaml.Node, idx *index.SpecIndex) error {
 // Hash will return a consistent SHA256 Hash of the Server object
 func (s *Server) Hash() [32]byte {
 	var f []string
-	keys := make([]string, len(s.Variables.Value))
-	z := 0
-	for k := range s.Variables.Value {
-		keys[z] = low.GenerateHashString(s.Variables.Value[k].Value)
-		z++
-	}
-	sort.Strings(keys)
-	f = append(f, keys...)
+	f = append(f, low.GenerateReferencePairsHashes(s.Variables.Value)...)
 	if !s.URL.IsEmpty() {
 		f = append(f, s.URL.Value)
 	}

@@ -5,12 +5,13 @@ package base
 
 import (
 	"fmt"
+	"strings"
+	"testing"
+
 	lowmodel "github.com/pb33f/libopenapi/datamodel/low"
 	lowbase "github.com/pb33f/libopenapi/datamodel/low/base"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
-	"strings"
-	"testing"
 )
 
 func TestNewExternalDoc(t *testing.T) {
@@ -32,7 +33,7 @@ x-hack: code`
 
 	assert.Equal(t, "hack code", highExt.Description)
 	assert.Equal(t, "https://pb33f.io", highExt.URL)
-	assert.Equal(t, "code", highExt.Extensions["x-hack"])
+	assert.Equal(t, "code", highExt.Extensions.Getz("x-hack"))
 
 	wentLow := highExt.GoLow()
 	assert.Equal(t, 2, wentLow.URL.ValueNode.Line)
@@ -67,6 +68,6 @@ x-hack: code`
 	highExt := NewExternalDoc(&lowExt)
 
 	// print out a extension
-	fmt.Print(highExt.Extensions["x-hack"])
+	fmt.Print(highExt.Extensions.Getz("x-hack"))
 	// Output: code
 }

@@ -5,14 +5,15 @@ package high
 
 import (
 	"fmt"
-	"github.com/pb33f/libopenapi/datamodel/low"
-	"github.com/pb33f/libopenapi/utils"
-	"gopkg.in/yaml.v3"
 	"reflect"
 	"sort"
 	"strconv"
 	"strings"
 	"unicode"
+
+	"github.com/pb33f/libopenapi/datamodel/low"
+	"github.com/pb33f/libopenapi/utils"
+	"gopkg.in/yaml.v3"
 )
 
 // NodeEntry represents a single node used by NodeBuilder.
@@ -70,32 +71,25 @@ func (n *NodeBuilder) add(key string, i int) {
 	// and add them to the node builder.
 	if key == "Extensions" {
 		extensions := reflect.ValueOf(n.High).Elem().FieldByName(key)
-		for b, e := range extensions.MapKeys() {
-			v := extensions.MapIndex(e)
+		for b := 0; b < extensions.Len(); b++ {
+			p := extensions.Index(b)
 
-			extKey := e.String()
-			extValue := v.Interface()
+			extKey := p.FieldByName("Key").String()
+			extValue := p.FieldByName("Value").Interface()
 			nodeEntry := &NodeEntry{Tag: extKey, Key: extKey, Value: extValue, Line: 9999 + b}
 
 			if n.Low != nil && !reflect.ValueOf(n.Low).IsZero() {
-				fieldValue := reflect.ValueOf(n.Low).Elem().FieldByName("Extensions")
-				f := fieldValue.Interface()
-				value := reflect.ValueOf(f)
-				switch value.Kind() {
-				case reflect.Map:
-					if j, ok := n.Low.(low.HasExtensionsUntyped); ok {
-						originalExtensions := j.GetExtensions()
-						u := 0
-						for k := range originalExtensions {
-							if k.Value == extKey {
-								if originalExtensions[k].ValueNode.Line != 0 {
-									nodeEntry.Style = originalExtensions[k].ValueNode.Style
-									nodeEntry.Line = originalExtensions[k].ValueNode.Line + u
-								} else {
-									nodeEntry.Line = 999999 + b + u
-								}
+				if j, ok := n.Low.(low.HasExtensionsUntyped); ok {
+					originalExtensions := j.GetExtensions()
+					for i, p := range originalExtensions {
+						k, v := p.Key, p.Value
+						if k.Value == extKey {
+							if v.ValueNode.Line != 0 {
+								nodeEntry.Style = v.ValueNode.Style
+								nodeEntry.Line = v.ValueNode.Line + i
+							} else {
+								nodeEntry.Line = 999999 + b + i
 							}
-							u++
 						}
 					}
 				}

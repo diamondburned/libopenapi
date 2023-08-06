@@ -170,7 +170,7 @@ func TestCreateDocument_WebHooks(t *testing.T) {
 	for i := range doc.Webhooks.Value {
 		// a nice deep model should be available for us.
 		assert.Equal(t, "Information about a new burger",
-			doc.Webhooks.Value[i].Value.Post.Value.RequestBody.Value.Description.Value)
+			doc.Webhooks.Value[i].Value.Value.Post.Value.RequestBody.Value.Description.Value)
 	}
 }
 
@@ -224,7 +224,8 @@ func TestCreateDocument_Tags(t *testing.T) {
 	assert.NotEmpty(t, doc.Tags.Value[0].Value.ExternalDocs.Value.URL.Value)
 	assert.Len(t, doc.Tags.Value[0].Value.Extensions, 7)
 
-	for key, extension := range doc.Tags.Value[0].Value.Extensions {
+	for _, p := range doc.Tags.Value[0].Value.Extensions {
+		key, extension := p.Key, p.Value
 		switch key.Value {
 		case "x-internal-ting":
 			assert.Equal(t, "somethingSpecial", extension.Value)

@@ -6,13 +6,15 @@ package v3
 import (
 	"crypto/sha256"
 	"fmt"
+	"sort"
+	"strings"
+
 	"github.com/pb33f/libopenapi/datamodel/low"
 	"github.com/pb33f/libopenapi/datamodel/low/base"
 	"github.com/pb33f/libopenapi/index"
 	"github.com/pb33f/libopenapi/utils"
+	"github.com/pb33f/libopenapi/utils/typex"
 	"gopkg.in/yaml.v3"
-	"sort"
-	"strings"
 )
 
 // Operation is a low-level representation of an OpenAPI 3+ Operation object.
@@ -29,11 +31,11 @@ type Operation struct {
 	Parameters   low.NodeReference[[]low.ValueReference[*Parameter]]
 	RequestBody  low.NodeReference[*RequestBody]
 	Responses    low.NodeReference[*Responses]
-	Callbacks    low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*Callback]]
+	Callbacks    low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[*Callback]]]
 	Deprecated   low.NodeReference[bool]
 	Security     low.NodeReference[[]low.ValueReference[*base.SecurityRequirement]]
 	Servers      low.NodeReference[[]low.ValueReference[*Server]]
-	Extensions   map[low.KeyReference[string]]low.ValueReference[any]
+	Extensions   typex.Pairs[low.KeyReference[string], low.ValueReference[any]]
 	*low.Reference
 }
 
@@ -101,7 +103,7 @@ func (o *Operation) Build(root *yaml.Node, idx *index.SpecIndex) error {
 		return cbErr
 	}
 	if callbacks != nil {
-		o.Callbacks = low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*Callback]]{
+		o.Callbacks = low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[*Callback]]]{
 			Value:     callbacks,
 			KeyNode:   cbL,
 			ValueNode: cbN,
@@ -202,23 +204,8 @@ func (o *Operation) Hash() [32]byte {
 	sort.Strings(keys)
 	f = append(f, keys...)
 
-	keys = make([]string, len(o.Callbacks.Value))
-	z := 0
-	for k := range o.Callbacks.Value {
-		keys[z] = low.GenerateHashString(o.Callbacks.Value[k].Value)
-		z++
-	}
-	sort.Strings(keys)
-	f = append(f, keys...)
-
-	keys = make([]string, len(o.Extensions))
-	z = 0
-	for k := range o.Extensions {
-		keys[z] = fmt.Sprintf("%s-%x", k.Value, sha256.Sum256([]byte(fmt.Sprint(o.Extensions[k].Value))))
-		z++
-	}
-	sort.Strings(keys)
-	f = append(f, keys...)
+	f = append(f, low.GenerateReferencePairsHashes(o.Callbacks.Value)...)
+	f = append(f, low.GenerateReferencePairsHashes(o.Extensions)...)
 
 	return sha256.Sum256([]byte(strings.Join(f, "|")))
 }
@@ -247,7 +234,7 @@ func (o *Operation) GetOperationId() low.NodeReference[string] {
 func (o *Operation) GetDeprecated() low.NodeReference[bool] {
 	return o.Deprecated
 }
-func (o *Operation) GetExtensions() map[low.KeyReference[string]]low.ValueReference[any] {
+func (o *Operation) GetExtensions() typex.Pairs[low.KeyReference[string], low.ValueReference[any]] {
 	return o.Extensions
 }
 func (o *Operation) GetResponses() low.NodeReference[any] {
@@ -278,6 +265,6 @@ func (o *Operation) GetServers() low.NodeReference[any] {
 		Value:     o.Servers.Value,
 	}
 }
-func (o *Operation) GetCallbacks() low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*Callback]] {
+func (o *Operation) GetCallbacks() low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[*Callback]]] {
 	return o.Callbacks
 }

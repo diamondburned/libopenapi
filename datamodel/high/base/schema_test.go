@@ -303,8 +303,8 @@ $anchor: anchor`
 	assert.Equal(t, "string", compiled.If.Schema().Type[0])
 	assert.Equal(t, "integer", compiled.Else.Schema().Type[0])
 	assert.Equal(t, "boolean", compiled.Then.Schema().Type[0])
-	assert.Equal(t, "string", compiled.PatternProperties["patternOne"].Schema().Type[0])
-	assert.Equal(t, "string", compiled.DependentSchemas["schemaOne"].Schema().Type[0])
+	assert.Equal(t, "string", compiled.PatternProperties.Getz("patternOne").Schema().Type[0])
+	assert.Equal(t, "string", compiled.DependentSchemas.Getz("schemaOne").Schema().Type[0])
 	assert.Equal(t, "string", compiled.PropertyNames.Schema().Type[0])
 	assert.Equal(t, "boolean", compiled.UnevaluatedItems.Schema().Type[0])
 	assert.Equal(t, "integer", compiled.UnevaluatedProperties.A.Schema().Type[0])
@@ -499,10 +499,10 @@ required: [cake, fish]`
 	assert.NotNil(t, compiled)
 	assert.Nil(t, schemaProxy.GetBuildError())
 
-    assert.True(t, compiled.ExclusiveMaximum.A)
-    assert.Equal(t, float64(123), compiled.Properties["somethingB"].Schema().ExclusiveMinimum.B)
-    assert.Equal(t, float64(334), compiled.Properties["somethingB"].Schema().ExclusiveMaximum.B)
-    assert.Len(t, compiled.Properties["somethingB"].Schema().Properties["somethingBProp"].Schema().Type, 2)
+	assert.True(t, compiled.ExclusiveMaximum.A)
+	assert.Equal(t, float64(123), compiled.Properties.Getz("somethingB").Schema().ExclusiveMinimum.B)
+	assert.Equal(t, float64(334), compiled.Properties.Getz("somethingB").Schema().ExclusiveMaximum.B)
+	assert.Len(t, compiled.Properties.Getz("somethingB").Schema().Properties.Getz("somethingBProp").Schema().Type, 2)
 
 	assert.Equal(t, "nice", compiled.AdditionalProperties.(*SchemaProxy).Schema().Description)
 
@@ -587,25 +587,25 @@ type: number
 }
 
 func TestSchemaNumberMultipleOfInt(t *testing.T) {
-    yml := `
+	yml := `
 type: number
 multipleOf: 5
 `
 	highSchema := getHighSchema(t, yml)
 
 	value := float64(5)
-    assert.EqualValues(t, &value, highSchema.MultipleOf)
+	assert.EqualValues(t, &value, highSchema.MultipleOf)
 }
 
 func TestSchemaNumberMultipleOfFloat(t *testing.T) {
-    yml := `
+	yml := `
 type: number
 multipleOf: 0.5
 `
-    highSchema := getHighSchema(t, yml)
+	highSchema := getHighSchema(t, yml)
 
-    value := 0.5
-    assert.EqualValues(t, &value, highSchema.MultipleOf)
+	value := 0.5
+	assert.EqualValues(t, &value, highSchema.MultipleOf)
 }
 
 func TestSchemaNumberMinimumInt(t *testing.T) {
@@ -616,17 +616,17 @@ minimum: 5
 	highSchema := getHighSchema(t, yml)
 
 	value := float64(5)
-    assert.EqualValues(t, &value, highSchema.Minimum)
+	assert.EqualValues(t, &value, highSchema.Minimum)
 }
 
 func TestSchemaNumberMinimumFloat(t *testing.T) {
-    yml := `
+	yml := `
 type: number
 minimum: 0.5
 `
-    highSchema := getHighSchema(t, yml)
+	highSchema := getHighSchema(t, yml)
 
-    value := 0.5
+	value := 0.5
 	assert.EqualValues(t, &value, highSchema.Minimum)
 }
 
@@ -638,7 +638,7 @@ minimum: 0
 	highSchema := getHighSchema(t, yml)
 
 	value := float64(0)
-    assert.EqualValues(t, &value, highSchema.Minimum)
+	assert.EqualValues(t, &value, highSchema.Minimum)
 }
 
 func TestSchemaNumberExclusiveMinimum(t *testing.T) {
@@ -661,7 +661,7 @@ maximum: 5
 	highSchema := getHighSchema(t, yml)
 
 	value := float64(5)
-    assert.EqualValues(t, &value, highSchema.Maximum)
+	assert.EqualValues(t, &value, highSchema.Maximum)
 }
 
 func TestSchemaNumberMaximumZero(t *testing.T) {
@@ -672,7 +672,7 @@ maximum: 0
 	highSchema := getHighSchema(t, yml)
 
 	value := float64(0)
-    assert.EqualValues(t, &value, highSchema.Maximum)
+	assert.EqualValues(t, &value, highSchema.Maximum)
 }
 
 func TestSchemaNumberExclusiveMaximum(t *testing.T) {
@@ -734,7 +734,7 @@ properties:
 	highSchema := NewSchema(&lowSchema)
 
 	// print out the description of 'aProperty'
-	fmt.Print(highSchema.Properties["aProperty"].Schema().Description)
+	fmt.Print(highSchema.Properties.Getz("aProperty").Schema().Description)
 	// Output: this is an integer property
 }
 
@@ -765,7 +765,7 @@ properties:
 	})
 
 	// print out the description of 'aProperty'
-	fmt.Print(highSchema.Schema().Properties["aProperty"].Schema().Description)
+	fmt.Print(highSchema.Schema().Properties.Getz("aProperty").Schema().Description)
 	// Output: this is an integer property
 }
 

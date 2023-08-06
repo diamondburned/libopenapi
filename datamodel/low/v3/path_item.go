@@ -6,13 +6,13 @@ package v3
 import (
 	"crypto/sha256"
 	"fmt"
-	"sort"
 	"strings"
 	"sync"
 
 	"github.com/pb33f/libopenapi/datamodel/low"
 	"github.com/pb33f/libopenapi/index"
 	"github.com/pb33f/libopenapi/utils"
+	"github.com/pb33f/libopenapi/utils/typex"
 	"gopkg.in/yaml.v3"
 )
 
@@ -35,7 +35,7 @@ type PathItem struct {
 	Trace       low.NodeReference[*Operation]
 	Servers     low.NodeReference[[]low.ValueReference[*Server]]
 	Parameters  low.NodeReference[[]low.ValueReference[*Parameter]]
-	Extensions  map[low.KeyReference[string]]low.ValueReference[any]
+	Extensions  typex.Pairs[low.KeyReference[string], low.ValueReference[any]]
 	*low.Reference
 }
 
@@ -72,27 +72,9 @@ func (p *PathItem) Hash() [32]byte {
 	if !p.Trace.IsEmpty() {
 		f = append(f, fmt.Sprintf("%s-%s", TraceLabel, low.GenerateHashString(p.Trace.Value)))
 	}
-	keys := make([]string, len(p.Parameters.Value))
-	for k := range p.Parameters.Value {
-		keys[k] = low.GenerateHashString(p.Parameters.Value[k].Value)
-	}
-	sort.Strings(keys)
-	f = append(f, keys...)
-	keys = make([]string, len(p.Servers.Value))
-	for k := range p.Servers.Value {
-		keys[k] = low.GenerateHashString(p.Servers.Value[k].Value)
-	}
-	sort.Strings(keys)
-	f = append(f, keys...)
-
-	keys = make([]string, len(p.Extensions))
-	z := 0
-	for k := range p.Extensions {
-		keys[z] = fmt.Sprintf("%s-%x", k.Value, sha256.Sum256([]byte(fmt.Sprint(p.Extensions[k].Value))))
-		z++
-	}
-	sort.Strings(keys)
-	f = append(f, keys...)
+	f = append(f, low.GenerateReferenceListHashes(p.Parameters.Value)...)
+	f = append(f, low.GenerateReferenceListHashes(p.Servers.Value)...)
+	f = append(f, low.GenerateReferencePairsHashes(p.Extensions)...)
 	return sha256.Sum256([]byte(strings.Join(f, "|")))
 }
 
@@ -102,7 +84,7 @@ func (p *PathItem) FindExtension(ext string) *low.ValueReference[any] {
 }
 
 // GetExtensions returns all PathItem extensions and satisfies the low.HasExtensions interface.
-func (p *PathItem) GetExtensions() map[low.KeyReference[string]]low.ValueReference[any] {
+func (p *PathItem) GetExtensions() typex.Pairs[low.KeyReference[string], low.ValueReference[any]] {
 	return p.Extensions
 }
 

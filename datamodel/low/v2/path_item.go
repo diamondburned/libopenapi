@@ -6,13 +6,15 @@ package v2
 import (
 	"crypto/sha256"
 	"fmt"
-	"github.com/pb33f/libopenapi/datamodel/low"
-	"github.com/pb33f/libopenapi/index"
-	"github.com/pb33f/libopenapi/utils"
-	"gopkg.in/yaml.v3"
 	"sort"
 	"strings"
 	"sync"
+
+	"github.com/pb33f/libopenapi/datamodel/low"
+	"github.com/pb33f/libopenapi/index"
+	"github.com/pb33f/libopenapi/utils"
+	"github.com/pb33f/libopenapi/utils/typex"
+	"gopkg.in/yaml.v3"
 )
 
 // PathItem represents a low-level Swagger / OpenAPI 2 PathItem object.
@@ -32,7 +34,7 @@ type PathItem struct {
 	Head       low.NodeReference[*Operation]
 	Patch      low.NodeReference[*Operation]
 	Parameters low.NodeReference[[]low.ValueReference[*Parameter]]
-	Extensions map[low.KeyReference[string]]low.ValueReference[any]
+	Extensions typex.Pairs[low.KeyReference[string], low.ValueReference[any]]
 }
 
 // FindExtension will attempt to locate an extension given a name.
@@ -41,7 +43,7 @@ func (p *PathItem) FindExtension(ext string) *low.ValueReference[any] {
 }
 
 // GetExtensions returns all PathItem extensions and satisfies the low.HasExtensions interface.
-func (p *PathItem) GetExtensions() map[low.KeyReference[string]]low.ValueReference[any] {
+func (p *PathItem) GetExtensions() typex.Pairs[low.KeyReference[string], low.ValueReference[any]] {
 	return p.Extensions
 }
 
@@ -221,13 +223,6 @@ func (p *PathItem) Hash() [32]byte {
 	}
 	sort.Strings(keys)
 	f = append(f, keys...)
-	keys = make([]string, len(p.Extensions))
-	z := 0
-	for k := range p.Extensions {
-		keys[z] = fmt.Sprintf("%s-%x", k.Value, sha256.Sum256([]byte(fmt.Sprint(p.Extensions[k].Value))))
-		z++
-	}
-	sort.Strings(keys)
-	f = append(f, keys...)
+	f = append(f, low.GenerateReferencePairsHashes(p.Extensions)...)
 	return sha256.Sum256([]byte(strings.Join(f, "|")))
 }

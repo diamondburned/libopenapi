@@ -6,13 +6,14 @@ package v3
 import (
 	"crypto/sha256"
 	"fmt"
+	"strings"
+
 	"github.com/pb33f/libopenapi/datamodel/low"
 	"github.com/pb33f/libopenapi/datamodel/low/base"
 	"github.com/pb33f/libopenapi/index"
 	"github.com/pb33f/libopenapi/utils"
+	"github.com/pb33f/libopenapi/utils/typex"
 	"gopkg.in/yaml.v3"
-	"sort"
-	"strings"
 )
 
 // Components represents a low-level OpenAPI 3+ Components Object, that is backed by a low-level one.
@@ -21,21 +22,21 @@ import (
 // will have no effect on the API unless they are explicitly referenced from properties outside the components object.
 //   - https://spec.openapis.org/oas/v3.1.0#components-object
 type Components struct {
-	Schemas         low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*base.SchemaProxy]]
-	Responses       low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*Response]]
-	Parameters      low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*Parameter]]
-	Examples        low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*base.Example]]
-	RequestBodies   low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*RequestBody]]
-	Headers         low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*Header]]
-	SecuritySchemes low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*SecurityScheme]]
-	Links           low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*Link]]
-	Callbacks       low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*Callback]]
-	Extensions      map[low.KeyReference[string]]low.ValueReference[any]
+	Schemas         low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[*base.SchemaProxy]]]
+	Responses       low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[*Response]]]
+	Parameters      low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[*Parameter]]]
+	Examples        low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[*base.Example]]]
+	RequestBodies   low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[*RequestBody]]]
+	Headers         low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[*Header]]]
+	SecuritySchemes low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[*SecurityScheme]]]
+	Links           low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[*Link]]]
+	Callbacks       low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[*Callback]]]
+	Extensions      typex.Pairs[low.KeyReference[string], low.ValueReference[any]]
 	*low.Reference
 }
 
 // GetExtensions returns all Components extensions and satisfies the low.HasExtensions interface.
-func (co *Components) GetExtensions() map[low.KeyReference[string]]low.ValueReference[any] {
+func (co *Components) GetExtensions() typex.Pairs[low.KeyReference[string], low.ValueReference[any]] {
 	return co.Extensions
 }
 
@@ -51,33 +52,12 @@ func (co *Components) Hash() [32]byte {
 	generateHashForObjectMap(co.SecuritySchemes.Value, &f)
 	generateHashForObjectMap(co.Links.Value, &f)
 	generateHashForObjectMap(co.Callbacks.Value, &f)
-	keys := make([]string, len(co.Extensions))
-	z := 0
-	for k := range co.Extensions {
-		keys[z] = fmt.Sprintf("%s-%x", k.Value, sha256.Sum256([]byte(fmt.Sprint(co.Extensions[k].Value))))
-		z++
-	}
-	sort.Strings(keys)
-	f = append(f, keys...)
+	f = append(f, low.GenerateReferencePairsHashes(co.Extensions)...)
 	return sha256.Sum256([]byte(strings.Join(f, "|")))
 }
 
-func generateHashForObjectMap[T any](collection map[low.KeyReference[string]]low.ValueReference[T], hash *[]string) {
-	if collection == nil {
-		return
-	}
-	l := make([]string, len(collection))
-	keys := make(map[string]low.ValueReference[T])
-	z := 0
-	for k := range collection {
-		keys[k.Value] = collection[k]
-		l[z] = k.Value
-		z++
-	}
-	sort.Strings(l)
-	for k := range l {
-		*hash = append(*hash, low.GenerateHashString(keys[l[k]].Value))
-	}
+func generateHashForObjectMap[T any](collection typex.Pairs[low.KeyReference[string], low.ValueReference[T]], hash *[]string) {
+	*hash = append(*hash, low.GenerateReferencePairsHashes(collection)...)
 }
 
 // FindExtension attempts to locate an extension with the supplied key
@@ -135,15 +115,15 @@ func (co *Components) Build(root *yaml.Node, idx *index.SpecIndex) error {
 	// build out components asynchronously for speed. There could be some significant weight here.
 	skipChan := make(chan bool)
 	errorChan := make(chan error)
-	paramChan := make(chan low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*Parameter]])
-	schemaChan := make(chan low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*base.SchemaProxy]])
-	responsesChan := make(chan low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*Response]])
-	examplesChan := make(chan low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*base.Example]])
-	requestBodiesChan := make(chan low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*RequestBody]])
-	headersChan := make(chan low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*Header]])
-	securitySchemesChan := make(chan low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*SecurityScheme]])
-	linkChan := make(chan low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*Link]])
-	callbackChan := make(chan low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*Callback]])
+	paramChan := make(chan low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[*Parameter]]])
+	schemaChan := make(chan low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[*base.SchemaProxy]]])
+	responsesChan := make(chan low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[*Response]]])
+	examplesChan := make(chan low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[*base.Example]]])
+	requestBodiesChan := make(chan low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[*RequestBody]]])
+	headersChan := make(chan low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[*Header]]])
+	securitySchemesChan := make(chan low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[*SecurityScheme]]])
+	linkChan := make(chan low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[*Link]]])
+	callbackChan := make(chan low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[*Callback]]])
 
 	go extractComponentValues[*base.SchemaProxy](SchemasLabel, root, skipChan, errorChan, schemaChan, idx)
 	go extractComponentValues[*Parameter](ParametersLabel, root, skipChan, errorChan, paramChan, idx)
@@ -202,14 +182,14 @@ type componentBuildResult[T any] struct {
 }
 
 func extractComponentValues[T low.Buildable[N], N any](label string, root *yaml.Node,
-	skip chan bool, errorChan chan<- error, resultChan chan<- low.NodeReference[map[low.KeyReference[string]]low.ValueReference[T]], idx *index.SpecIndex) {
+	skip chan bool, errorChan chan<- error, resultChan chan<- low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[T]]], idx *index.SpecIndex) {
 	_, nodeLabel, nodeValue := utils.FindKeyNodeFullTop(label, root.Content)
 	if nodeValue == nil {
 		skip <- true
 		return
 	}
 	var currentLabel *yaml.Node
-	componentValues := make(map[low.KeyReference[string]]low.ValueReference[T])
+	componentValues := make(typex.Pairs[low.KeyReference[string], low.ValueReference[T]], 0)
 	if utils.IsNodeArray(nodeValue) {
 		errorChan <- fmt.Errorf("node is array, cannot be used in components: line %d, column %d", nodeValue.Line, nodeValue.Column)
 		return
@@ -272,12 +252,12 @@ func extractComponentValues[T low.Buildable[N], N any](label string, root *yaml.
 		case e := <-eChan:
 			errorChan <- e
 		case r := <-bChan:
-			componentValues[r.k] = r.v
+			componentValues.Push(r.k, r.v)
 			completedComponents++
 		}
 	}
 
-	results := low.NodeReference[map[low.KeyReference[string]]low.ValueReference[T]]{
+	results := low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[T]]]{
 		KeyNode:   nodeLabel,
 		ValueNode: nodeValue,
 		Value:     componentValues,

@@ -5,14 +5,14 @@ package v2
 
 import (
 	"crypto/sha256"
-	"fmt"
+	"strings"
+
 	"github.com/pb33f/libopenapi/datamodel/low"
 	"github.com/pb33f/libopenapi/datamodel/low/base"
 	"github.com/pb33f/libopenapi/index"
 	"github.com/pb33f/libopenapi/utils"
+	"github.com/pb33f/libopenapi/utils/typex"
 	"gopkg.in/yaml.v3"
-	"sort"
-	"strings"
 )
 
 // Response is a representation of a high-level Swagger / OpenAPI 2 Response object, backed by a low-level one.
@@ -22,9 +22,9 @@ import (
 type Response struct {
 	Description low.NodeReference[string]
 	Schema      low.NodeReference[*base.SchemaProxy]
-	Headers     low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*Header]]
+	Headers     low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[*Header]]]
 	Examples    low.NodeReference[*Examples]
-	Extensions  map[low.KeyReference[string]]low.ValueReference[any]
+	Extensions  typex.Pairs[low.KeyReference[string], low.ValueReference[any]]
 }
 
 // FindExtension will attempt to locate an extension value given a key to lookup.
@@ -33,7 +33,7 @@ func (r *Response) FindExtension(ext string) *low.ValueReference[any] {
 }
 
 // GetExtensions returns all Response extensions and satisfies the low.HasExtensions interface.
-func (r *Response) GetExtensions() map[low.KeyReference[string]]low.ValueReference[any] {
+func (r *Response) GetExtensions() typex.Pairs[low.KeyReference[string], low.ValueReference[any]] {
 	return r.Extensions
 }
 
@@ -68,7 +68,7 @@ func (r *Response) Build(root *yaml.Node, idx *index.SpecIndex) error {
 		return err
 	}
 	if headers != nil {
-		r.Headers = low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*Header]]{
+		r.Headers = low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[*Header]]]{
 			Value:     headers,
 			KeyNode:   lN,
 			ValueNode: kN,
@@ -87,17 +87,8 @@ func (r *Response) Hash() [32]byte {
 		f = append(f, low.GenerateHashString(r.Schema.Value))
 	}
 	if !r.Examples.IsEmpty() {
-		for k := range r.Examples.Value.Values {
-			f = append(f, low.GenerateHashString(r.Examples.Value.Values[k].Value))
-		}
+		f = append(f, low.GenerateReferencePairsHashes(r.Examples.Value.Values)...)
 	}
-	keys := make([]string, len(r.Extensions))
-	z := 0
-	for k := range r.Extensions {
-		keys[z] = fmt.Sprintf("%s-%x", k.Value, sha256.Sum256([]byte(fmt.Sprint(r.Extensions[k].Value))))
-		z++
-	}
-	sort.Strings(keys)
-	f = append(f, keys...)
+	f = append(f, low.GenerateReferencePairsHashes(r.Extensions)...)
 	return sha256.Sum256([]byte(strings.Join(f, "|")))
 }

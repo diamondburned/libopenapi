@@ -17,6 +17,7 @@ import (
 	"github.com/pb33f/libopenapi/datamodel/low/base"
 	"github.com/pb33f/libopenapi/index"
 	"github.com/pb33f/libopenapi/resolver"
+	"github.com/pb33f/libopenapi/utils/typex"
 	"gopkg.in/yaml.v3"
 )
 
@@ -96,7 +97,7 @@ type Swagger struct {
 	ExternalDocs low.NodeReference[*base.ExternalDoc]
 
 	// Extensions contains all custom extensions defined for the top-level document.
-	Extensions map[low.KeyReference[string]]low.ValueReference[any]
+	Extensions typex.Pairs[low.KeyReference[string], low.ValueReference[any]]
 
 	// Index is a reference to the index.SpecIndex that was created for the document and used
 	// as a guide when building out the Document. Ideal if further processing is required on the model and
@@ -117,7 +118,7 @@ func (s *Swagger) FindExtension(ext string) *low.ValueReference[any] {
 }
 
 // GetExtensions returns all Swagger/Top level extensions and satisfies the low.HasExtensions interface.
-func (s *Swagger) GetExtensions() map[low.KeyReference[string]]low.ValueReference[any] {
+func (s *Swagger) GetExtensions() typex.Pairs[low.KeyReference[string], low.ValueReference[any]] {
 	return s.Extensions
 }
 

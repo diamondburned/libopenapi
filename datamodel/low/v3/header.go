@@ -6,13 +6,14 @@ package v3
 import (
 	"crypto/sha256"
 	"fmt"
+	"strings"
+
 	"github.com/pb33f/libopenapi/datamodel/low"
 	"github.com/pb33f/libopenapi/datamodel/low/base"
 	"github.com/pb33f/libopenapi/index"
 	"github.com/pb33f/libopenapi/utils"
+	"github.com/pb33f/libopenapi/utils/typex"
 	"gopkg.in/yaml.v3"
-	"sort"
-	"strings"
 )
 
 // Header represents a low-level OpenAPI 3+ Header object.
@@ -27,9 +28,9 @@ type Header struct {
 	AllowReserved   low.NodeReference[bool]
 	Schema          low.NodeReference[*base.SchemaProxy]
 	Example         low.NodeReference[any]
-	Examples        low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*base.Example]]
-	Content         low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*MediaType]]
-	Extensions      map[low.KeyReference[string]]low.ValueReference[any]
+	Examples        low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[*base.Example]]]
+	Content         low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[*MediaType]]]
+	Extensions      typex.Pairs[low.KeyReference[string], low.ValueReference[any]]
 	*low.Reference
 }
 
@@ -49,7 +50,7 @@ func (h *Header) FindContent(ext string) *low.ValueReference[*MediaType] {
 }
 
 // GetExtensions returns all Header extensions and satisfies the low.HasExtensions interface.
-func (h *Header) GetExtensions() map[low.KeyReference[string]]low.ValueReference[any] {
+func (h *Header) GetExtensions() typex.Pairs[low.KeyReference[string], low.ValueReference[any]] {
 	return h.Extensions
 }
 
@@ -74,23 +75,12 @@ func (h *Header) Hash() [32]byte {
 		f = append(f, fmt.Sprint(h.Example.Value))
 	}
 	if len(h.Examples.Value) > 0 {
-		for k := range h.Examples.Value {
-			f = append(f, fmt.Sprintf("%s-%x", k.Value, h.Examples.Value[k].Value.Hash()))
-		}
+		f = append(f, low.GenerateReferencePairsHashes(h.Examples.Value)...)
 	}
 	if len(h.Content.Value) > 0 {
-		for k := range h.Content.Value {
-			f = append(f, fmt.Sprintf("%s-%x", k.Value, h.Content.Value[k].Value.Hash()))
-		}
+		f = append(f, low.GenerateReferencePairsHashes(h.Content.Value)...)
 	}
-	keys := make([]string, len(h.Extensions))
-	z := 0
-	for k := range h.Extensions {
-		keys[z] = fmt.Sprintf("%s-%x", k.Value, sha256.Sum256([]byte(fmt.Sprint(h.Extensions[k].Value))))
-		z++
-	}
-	sort.Strings(keys)
-	f = append(f, keys...)
+	f = append(f, low.GenerateReferencePairsHashes(h.Extensions)...)
 	return sha256.Sum256([]byte(strings.Join(f, "|")))
 }
 
@@ -113,7 +103,7 @@ func (h *Header) Build(root *yaml.Node, idx *index.SpecIndex) error {
 		return eErr
 	}
 	if exps != nil {
-		h.Examples = low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*base.Example]]{
+		h.Examples = low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[*base.Example]]]{
 			Value:     exps,
 			KeyNode:   expsL,
 			ValueNode: expsN,
@@ -134,7 +124,7 @@ func (h *Header) Build(root *yaml.Node, idx *index.SpecIndex) error {
 	if cErr != nil {
 		return cErr
 	}
-	h.Content = low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*MediaType]]{
+	h.Content = low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[*MediaType]]]{
 		Value:     con,
 		KeyNode:   cL,
 		ValueNode: cN,

@@ -9,6 +9,7 @@ import (
 
 	lowmodel "github.com/pb33f/libopenapi/datamodel/low"
 	lowbase "github.com/pb33f/libopenapi/datamodel/low/base"
+	"github.com/pb33f/libopenapi/utils/typex"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
 )
@@ -44,7 +45,7 @@ x-cli-name: chicken cli`
 	assert.Equal(t, "pb33f", highInfo.License.Name)
 	assert.Equal(t, "https://pb33f.io", highInfo.License.URL)
 	assert.Equal(t, "99.99", highInfo.Version)
-	assert.Equal(t, "chicken cli", highInfo.Extensions["x-cli-name"])
+	assert.Equal(t, "chicken cli", highInfo.Extensions.Getz("x-cli-name"))
 
 	wentLow := highInfo.GoLow()
 	assert.Equal(t, 10, wentLow.Version.ValueNode.Line)
@@ -109,11 +110,12 @@ url: https://opensource.org/licenses/MIT`
 
 func TestInfo_Render(t *testing.T) {
 
-	ext := make(map[string]any)
-	ext["x-pizza"] = "pepperoni"
-	ext["x-cake"] = &License{
-		Name: "someone",
-		URL:  "nowhere",
+	ext := typex.Pairs[string, any]{
+		{Key: "x-pizza", Value: "pepperoni"},
+		{Key: "x-cake", Value: &License{
+			Name: "someone",
+			URL:  "nowhere",
+		}},
 	}
 	highI := &Info{
 		Title:          "hey",
@@ -153,7 +155,7 @@ func TestInfo_Render(t *testing.T) {
 	assert.Equal(t, "MIT", highInfo.License.Name)
 	assert.Equal(t, "https://opensource.org/licenses/MIT", highInfo.License.URL)
 	assert.Equal(t, "1.2.3", highInfo.Version)
-	assert.Equal(t, "pepperoni", highInfo.Extensions["x-pizza"])
+	assert.Equal(t, "pepperoni", highInfo.Extensions.Getz("x-pizza"))
 	assert.NotNil(t, highInfo.GoLowUntyped())
 }
 
@@ -194,7 +196,7 @@ x-cake:
 	assert.Equal(t, "MIT", highInfo.License.Name)
 	assert.Equal(t, "https://opensource.org/licenses/MIT", highInfo.License.URL)
 	assert.Equal(t, "1.2.3", highInfo.Version)
-	assert.Equal(t, "pepperoni", highInfo.Extensions["x-pizza"])
+	assert.Equal(t, "pepperoni", highInfo.Extensions.Getz("x-pizza"))
 
 	// marshal high back to yaml, should be the same as the original, in same order.
 	bytes, _ := highInfo.Render()

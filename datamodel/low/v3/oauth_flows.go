@@ -5,13 +5,13 @@ package v3
 
 import (
 	"crypto/sha256"
-	"fmt"
+	"strings"
+
 	"github.com/pb33f/libopenapi/datamodel/low"
 	"github.com/pb33f/libopenapi/index"
 	"github.com/pb33f/libopenapi/utils"
+	"github.com/pb33f/libopenapi/utils/typex"
 	"gopkg.in/yaml.v3"
-	"sort"
-	"strings"
 )
 
 // OAuthFlows represents a low-level OpenAPI 3+ OAuthFlows object.
@@ -21,12 +21,12 @@ type OAuthFlows struct {
 	Password          low.NodeReference[*OAuthFlow]
 	ClientCredentials low.NodeReference[*OAuthFlow]
 	AuthorizationCode low.NodeReference[*OAuthFlow]
-	Extensions        map[low.KeyReference[string]]low.ValueReference[any]
+	Extensions        typex.Pairs[low.KeyReference[string], low.ValueReference[any]]
 	*low.Reference
 }
 
 // GetExtensions returns all OAuthFlows extensions and satisfies the low.HasExtensions interface.
-func (o *OAuthFlows) GetExtensions() map[low.KeyReference[string]]low.ValueReference[any] {
+func (o *OAuthFlows) GetExtensions() typex.Pairs[low.KeyReference[string], low.ValueReference[any]] {
 	return o.Extensions
 }
 
@@ -83,9 +83,7 @@ func (o *OAuthFlows) Hash() [32]byte {
 	if !o.AuthorizationCode.IsEmpty() {
 		f = append(f, low.GenerateHashString(o.AuthorizationCode.Value))
 	}
-	for k := range o.Extensions {
-		f = append(f, fmt.Sprintf("%s-%v", k.Value, o.Extensions[k].Value))
-	}
+	f = append(f, low.GenerateReferencePairsHashes(o.Extensions)...)
 	return sha256.Sum256([]byte(strings.Join(f, "|")))
 }
 
@@ -95,13 +93,13 @@ type OAuthFlow struct {
 	AuthorizationUrl low.NodeReference[string]
 	TokenUrl         low.NodeReference[string]
 	RefreshUrl       low.NodeReference[string]
-	Scopes           low.NodeReference[map[low.KeyReference[string]]low.ValueReference[string]]
-	Extensions       map[low.KeyReference[string]]low.ValueReference[any]
+	Scopes           low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[string]]]
+	Extensions       typex.Pairs[low.KeyReference[string], low.ValueReference[any]]
 	*low.Reference
 }
 
 // GetExtensions returns all OAuthFlow extensions and satisfies the low.HasExtensions interface.
-func (o *OAuthFlow) GetExtensions() map[low.KeyReference[string]]low.ValueReference[any] {
+func (o *OAuthFlow) GetExtensions() typex.Pairs[low.KeyReference[string], low.ValueReference[any]] {
 	return o.Extensions
 }
 
@@ -134,21 +132,7 @@ func (o *OAuthFlow) Hash() [32]byte {
 	if !o.RefreshUrl.IsEmpty() {
 		f = append(f, o.RefreshUrl.Value)
 	}
-	keys := make([]string, len(o.Scopes.Value))
-	z := 0
-	for k := range o.Scopes.Value {
-		keys[z] = fmt.Sprintf("%s-%s", k.Value, sha256.Sum256([]byte(fmt.Sprint(o.Scopes.Value[k].Value))))
-		z++
-	}
-	sort.Strings(keys)
-	f = append(f, keys...)
-	keys = make([]string, len(o.Extensions))
-	z = 0
-	for k := range o.Extensions {
-		keys[z] = fmt.Sprintf("%s-%x", k.Value, sha256.Sum256([]byte(fmt.Sprint(o.Extensions[k].Value))))
-		z++
-	}
-	sort.Strings(keys)
-	f = append(f, keys...)
+	f = append(f, low.GenerateReferencePairsHashes(o.Scopes.Value)...)
+	f = append(f, low.GenerateReferencePairsHashes(o.Extensions)...)
 	return sha256.Sum256([]byte(strings.Join(f, "|")))
 }

@@ -5,13 +5,13 @@ package v3
 
 import (
 	"crypto/sha256"
-	"fmt"
+	"strings"
+
 	"github.com/pb33f/libopenapi/datamodel/low"
 	"github.com/pb33f/libopenapi/index"
 	"github.com/pb33f/libopenapi/utils"
+	"github.com/pb33f/libopenapi/utils/typex"
 	"gopkg.in/yaml.v3"
-	"sort"
-	"strings"
 )
 
 // Link represents a low-level OpenAPI 3+ Link object.
@@ -29,16 +29,16 @@ import (
 type Link struct {
 	OperationRef low.NodeReference[string]
 	OperationId  low.NodeReference[string]
-	Parameters   low.NodeReference[map[low.KeyReference[string]]low.ValueReference[string]]
+	Parameters   low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[string]]]
 	RequestBody  low.NodeReference[string]
 	Description  low.NodeReference[string]
 	Server       low.NodeReference[*Server]
-	Extensions   map[low.KeyReference[string]]low.ValueReference[any]
+	Extensions   typex.Pairs[low.KeyReference[string], low.ValueReference[any]]
 	*low.Reference
 }
 
 // GetExtensions returns all Link extensions and satisfies the low.HasExtensions interface.
-func (l *Link) GetExtensions() map[low.KeyReference[string]]low.ValueReference[any] {
+func (l *Link) GetExtensions() typex.Pairs[low.KeyReference[string], low.ValueReference[any]] {
 	return l.Extensions
 }
 
@@ -85,23 +85,7 @@ func (l *Link) Hash() [32]byte {
 	if l.Server.Value != nil {
 		f = append(f, low.GenerateHashString(l.Server.Value))
 	}
-	// todo: needs ordering.
-
-	keys := make([]string, len(l.Parameters.Value))
-	z := 0
-	for k := range l.Parameters.Value {
-		keys[z] = l.Parameters.Value[k].Value
-		z++
-	}
-	sort.Strings(keys)
-	f = append(f, keys...)
-	keys = make([]string, len(l.Extensions))
-	z = 0
-	for k := range l.Extensions {
-		keys[z] = fmt.Sprintf("%s-%x", k.Value, sha256.Sum256([]byte(fmt.Sprint(l.Extensions[k].Value))))
-		z++
-	}
-	sort.Strings(keys)
-	f = append(f, keys...)
+	f = append(f, low.GenerateReferencePairsHashes(l.Parameters.Value)...)
+	f = append(f, low.GenerateReferencePairsHashes(l.Extensions)...)
 	return sha256.Sum256([]byte(strings.Join(f, "|")))
 }

@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/pb33f/libopenapi/utils"
+	"github.com/pb33f/libopenapi/utils/typex"
 	"gopkg.in/yaml.v3"
 )
 
@@ -415,6 +416,83 @@ func SetField(field *reflect.Value, valueNode *yaml.Node, keyNode *yaml.Node) er
 				field.Set(reflect.ValueOf(ref))
 			}
 		}
+
+	case reflect.TypeOf(typex.Pairs[KeyReference[string], ValueReference[string]]{}):
+
+		if utils.IsNodeMap(valueNode) {
+			if field.CanSet() {
+				var items typex.Pairs[KeyReference[string], ValueReference[string]]
+				var cf *yaml.Node
+				for i, sliceItem := range valueNode.Content {
+					if i%2 == 0 {
+						cf = sliceItem
+						continue
+					}
+					items.Push(KeyReference[string]{
+						Value:   cf.Value,
+						KeyNode: cf,
+					}, ValueReference[string]{
+						Value:     sliceItem.Value,
+						ValueNode: sliceItem,
+					})
+				}
+				field.Set(reflect.ValueOf(items))
+			}
+		}
+
+	case reflect.TypeOf(KeyReference[typex.Pairs[KeyReference[string], ValueReference[string]]]{}):
+
+		if utils.IsNodeMap(valueNode) {
+			if field.CanSet() {
+				var items typex.Pairs[KeyReference[string], ValueReference[string]]
+				var cf *yaml.Node
+				for i, sliceItem := range valueNode.Content {
+					if i%2 == 0 {
+						cf = sliceItem
+						continue
+					}
+					items.Push(KeyReference[string]{
+						Value:   cf.Value,
+						KeyNode: cf,
+					}, ValueReference[string]{
+						Value:     sliceItem.Value,
+						ValueNode: sliceItem,
+					})
+				}
+				ref := KeyReference[typex.Pairs[KeyReference[string], ValueReference[string]]]{
+					Value:   items,
+					KeyNode: keyNode,
+				}
+				field.Set(reflect.ValueOf(ref))
+			}
+		}
+	case reflect.TypeOf(NodeReference[typex.Pairs[KeyReference[string], ValueReference[string]]]{}):
+		if utils.IsNodeMap(valueNode) {
+			if field.CanSet() {
+				var items typex.Pairs[KeyReference[string], ValueReference[string]]
+				var cf *yaml.Node
+				for i, sliceItem := range valueNode.Content {
+					if i%2 == 0 {
+						cf = sliceItem
+						continue
+					}
+					items.Push(KeyReference[string]{
+						Value:   cf.Value,
+						KeyNode: cf,
+					}, ValueReference[string]{
+						Value:     sliceItem.Value,
+						ValueNode: sliceItem,
+					})
+				}
+				ref := NodeReference[typex.Pairs[KeyReference[string], ValueReference[string]]]{
+					Value:     items,
+					KeyNode:   keyNode,
+					ValueNode: valueNode,
+				}
+				field.Set(reflect.ValueOf(ref))
+			}
+		}
+
 	case reflect.TypeOf(NodeReference[[]ValueReference[string]]{}):
 
 		if utils.IsNodeArray(valueNode) {

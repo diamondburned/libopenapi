@@ -5,13 +5,13 @@ package v3
 
 import (
 	"crypto/sha256"
-	"fmt"
+	"strings"
+
 	"github.com/pb33f/libopenapi/datamodel/low"
 	"github.com/pb33f/libopenapi/index"
 	"github.com/pb33f/libopenapi/utils"
+	"github.com/pb33f/libopenapi/utils/typex"
 	"gopkg.in/yaml.v3"
-	"sort"
-	"strings"
 )
 
 // Response represents a high-level OpenAPI 3+ Response object that is backed by a low-level one.
@@ -21,10 +21,10 @@ import (
 //   - https://spec.openapis.org/oas/v3.1.0#response-object
 type Response struct {
 	Description low.NodeReference[string]
-	Headers     low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*Header]]
-	Content     low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*MediaType]]
-	Extensions  map[low.KeyReference[string]]low.ValueReference[any]
-	Links       low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*Link]]
+	Headers     low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[*Header]]]
+	Content     low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[*MediaType]]]
+	Extensions  typex.Pairs[low.KeyReference[string], low.ValueReference[any]]
+	Links       low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[*Link]]]
 	*low.Reference
 }
 
@@ -34,7 +34,7 @@ func (r *Response) FindExtension(ext string) *low.ValueReference[any] {
 }
 
 // GetExtensions returns all OAuthFlow extensions and satisfies the low.HasExtensions interface.
-func (r *Response) GetExtensions() map[low.KeyReference[string]]low.ValueReference[any] {
+func (r *Response) GetExtensions() typex.Pairs[low.KeyReference[string], low.ValueReference[any]] {
 	return r.Extensions
 }
 
@@ -66,7 +66,7 @@ func (r *Response) Build(root *yaml.Node, idx *index.SpecIndex) error {
 		return err
 	}
 	if headers != nil {
-		r.Headers = low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*Header]]{
+		r.Headers = low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[*Header]]]{
 			Value:     headers,
 			KeyNode:   lN,
 			ValueNode: kN,
@@ -78,7 +78,7 @@ func (r *Response) Build(root *yaml.Node, idx *index.SpecIndex) error {
 		return cErr
 	}
 	if con != nil {
-		r.Content = low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*MediaType]]{
+		r.Content = low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[*MediaType]]]{
 			Value:     con,
 			KeyNode:   clN,
 			ValueNode: cN,
@@ -91,7 +91,7 @@ func (r *Response) Build(root *yaml.Node, idx *index.SpecIndex) error {
 		return lErr
 	}
 	if links != nil {
-		r.Links = low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*Link]]{
+		r.Links = low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[*Link]]]{
 			Value:     links,
 			KeyNode:   linkLabel,
 			ValueNode: linkValue,
@@ -106,37 +106,9 @@ func (r *Response) Hash() [32]byte {
 	if r.Description.Value != "" {
 		f = append(f, r.Description.Value)
 	}
-	keys := make([]string, len(r.Headers.Value))
-	z := 0
-	for k := range r.Headers.Value {
-		keys[z] = fmt.Sprintf("%s-%s", k.Value, low.GenerateHashString(r.Headers.Value[k].Value))
-		z++
-	}
-	sort.Strings(keys)
-	f = append(f, keys...)
-	keys = make([]string, len(r.Content.Value))
-	z = 0
-	for k := range r.Content.Value {
-		keys[z] = fmt.Sprintf("%s-%s", k.Value, low.GenerateHashString(r.Content.Value[k].Value))
-		z++
-	}
-	sort.Strings(keys)
-	f = append(f, keys...)
-	keys = make([]string, len(r.Links.Value))
-	z = 0
-	for k := range r.Links.Value {
-		keys[z] = fmt.Sprintf("%s-%s", k.Value, low.GenerateHashString(r.Links.Value[k].Value))
-		z++
-	}
-	sort.Strings(keys)
-	f = append(f, keys...)
-	keys = make([]string, len(r.Extensions))
-	z = 0
-	for k := range r.Extensions {
-		keys[z] = fmt.Sprintf("%s-%x", k.Value, sha256.Sum256([]byte(fmt.Sprint(r.Extensions[k].Value))))
-		z++
-	}
-	sort.Strings(keys)
-	f = append(f, keys...)
+	f = append(f, low.GenerateReferencePairsHashes(r.Headers.Value)...)
+	f = append(f, low.GenerateReferencePairsHashes(r.Content.Value)...)
+	f = append(f, low.GenerateReferencePairsHashes(r.Links.Value)...)
+	f = append(f, low.GenerateReferencePairsHashes(r.Extensions)...)
 	return sha256.Sum256([]byte(strings.Join(f, "|")))
 }

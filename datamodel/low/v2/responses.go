@@ -6,23 +6,25 @@ package v2
 import (
 	"crypto/sha256"
 	"fmt"
+	"sort"
+	"strings"
+
 	"github.com/pb33f/libopenapi/datamodel/low"
 	"github.com/pb33f/libopenapi/index"
 	"github.com/pb33f/libopenapi/utils"
+	"github.com/pb33f/libopenapi/utils/typex"
 	"gopkg.in/yaml.v3"
-	"sort"
-	"strings"
 )
 
 // Responses is a low-level representation of a Swagger / OpenAPI 2 Responses object.
 type Responses struct {
-	Codes      map[low.KeyReference[string]]low.ValueReference[*Response]
+	Codes      typex.Pairs[low.KeyReference[string], low.ValueReference[*Response]]
 	Default    low.NodeReference[*Response]
-	Extensions map[low.KeyReference[string]]low.ValueReference[any]
+	Extensions typex.Pairs[low.KeyReference[string], low.ValueReference[any]]
 }
 
 // GetExtensions returns all Responses extensions and satisfies the low.HasExtensions interface.
-func (r *Responses) GetExtensions() map[low.KeyReference[string]]low.ValueReference[any] {
+func (r *Responses) GetExtensions() typex.Pairs[low.KeyReference[string], low.ValueReference[any]] {
 	return r.Extensions
 }
 
@@ -55,7 +57,9 @@ func (r *Responses) Build(root *yaml.Node, idx *index.SpecIndex) error {
 }
 
 func (r *Responses) getDefault() *low.NodeReference[*Response] {
-	for n, o := range r.Codes {
+	for _, p := range r.Codes {
+		n := p.Key
+		o := p.Value
 		if strings.ToLower(n.Value) == DefaultLabel {
 			return &low.NodeReference[*Response]{
 				ValueNode: o.ValueNode,
@@ -71,16 +75,16 @@ func (r *Responses) getDefault() *low.NodeReference[*Response] {
 func (r *Responses) deleteCode(code string) {
 	var key *low.KeyReference[string]
 	if r.Codes != nil {
-		for k := range r.Codes {
-			if k.Value == code {
-				key = &k
+		for _, p := range r.Codes {
+			if p.Key.Value == code {
+				key = &p.Key
 				break
 			}
 		}
 	}
 	// should never be nil, but, you never know... science and all that!
 	if key != nil {
-		delete(r.Codes, *key)
+		r.Codes.Delete(*key)
 	}
 }
 
@@ -95,11 +99,10 @@ func (r *Responses) Hash() [32]byte {
 	var keys []string
 	keys = make([]string, len(r.Codes))
 	cmap := make(map[string]*Response, len(keys))
-	z := 0
-	for k := range r.Codes {
-		keys[z] = k.Value
-		cmap[k.Value] = r.Codes[k].Value
-		z++
+	for i, p := range r.Codes {
+		k := p.Key
+		keys[i] = k.Value
+		cmap[k.Value] = p.Value.Value
 	}
 	sort.Strings(keys)
 	for k := range keys {
@@ -108,13 +111,6 @@ func (r *Responses) Hash() [32]byte {
 	if !r.Default.IsEmpty() {
 		f = append(f, low.GenerateHashString(r.Default.Value))
 	}
-	keys = make([]string, len(r.Extensions))
-	z = 0
-	for k := range r.Extensions {
-		keys[z] = fmt.Sprintf("%s-%x", k.Value, sha256.Sum256([]byte(fmt.Sprint(r.Extensions[k].Value))))
-		z++
-	}
-	sort.Strings(keys)
-	f = append(f, keys...)
+	f = append(f, low.GenerateReferencePairsHashes(r.Extensions)...)
 	return sha256.Sum256([]byte(strings.Join(f, "|")))
 }

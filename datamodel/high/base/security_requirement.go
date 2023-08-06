@@ -4,11 +4,13 @@
 package base
 
 import (
+	"sort"
+
 	"github.com/pb33f/libopenapi/datamodel/low"
 	"github.com/pb33f/libopenapi/datamodel/low/base"
 	"github.com/pb33f/libopenapi/utils"
+	"github.com/pb33f/libopenapi/utils/typex"
 	"gopkg.in/yaml.v3"
-	"sort"
 )
 
 // SecurityRequirement is a high-level representation of a Swagger / OpenAPI 3 SecurityRequirement object.
@@ -19,7 +21,7 @@ import (
 // The name used for each property MUST correspond to a security scheme declared in the Security Definitions
 //   - https://swagger.io/specification/v2/#securityDefinitionsObject
 type SecurityRequirement struct {
-	Requirements map[string][]string `json:"-" yaml:"-"`
+	Requirements typex.Pairs[string, []string] `json:"-" yaml:"-"`
 	low          *base.SecurityRequirement
 }
 
@@ -27,14 +29,14 @@ type SecurityRequirement struct {
 func NewSecurityRequirement(req *base.SecurityRequirement) *SecurityRequirement {
 	r := new(SecurityRequirement)
 	r.low = req
-	values := make(map[string][]string)
+	values := make(typex.Pairs[string, []string], 0, len(req.Requirements.Value))
 	// to keep things fast, avoiding copying anything - makes it a little hard to read.
 	for reqK := range req.Requirements.Value {
 		var vals []string
 		for valK := range req.Requirements.Value[reqK].Value {
 			vals = append(vals, req.Requirements.Value[reqK].Value[valK].Value)
 		}
-		values[reqK.Value] = vals
+		values.Push(reqK.Value, vals)
 	}
 	r.Requirements = values
 	return r
@@ -71,8 +73,9 @@ func (s *SecurityRequirement) MarshalYAML() (interface{}, error) {
 
 	i := 0
 
-	for k := range s.Requirements {
-		keys[i] = &req{key: k, val: s.Requirements[k]}
+	for _, p := range s.Requirements {
+		k, v := p.Key, p.Value
+		keys[i] = &req{key: k, val: v}
 		i++
 	}
 	i = 0

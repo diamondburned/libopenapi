@@ -4,11 +4,12 @@
 package v3
 
 import (
+	"testing"
+
 	"github.com/pb33f/libopenapi/datamodel/low"
 	"github.com/pb33f/libopenapi/index"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
-	"testing"
 )
 
 func TestResponses_Build(t *testing.T) {
@@ -61,7 +62,7 @@ default:
 	assert.Equal(t, "a link", link.Value.Description.Value)
 
 	// check hash
-	assert.Equal(t, "c009b2046101bc03df802b4cf23f78176931137e6115bf7b445ca46856c06b51",
+	assert.Equal(t, "31a9fdab29d1905c7010fceafadaef3d35f21c1e811d39ef8fed5435bf77eec5",
 		low.GenerateHashString(&n))
 
 }
@@ -95,7 +96,7 @@ x-shoes: old`
 	err = n.Build(idxNode.Content[0], idx)
 
 	// check hash
-	assert.Equal(t, "54ab66e6cb8bd226940f421c2387e45215b84c946182435dfe2a3036043fa07c",
+	assert.Equal(t, "b27b523e608e6a2420d8e9978f88494fa060c4f24951c8cfc54e4da8058bf59e",
 		low.GenerateHashString(&n))
 
 	assert.Len(t, n.FindResponseByCode("200").Value.GetExtensions(), 1)

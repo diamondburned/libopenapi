@@ -6,13 +6,14 @@ package v2
 import (
 	"crypto/sha256"
 	"fmt"
+	"strings"
+
 	"github.com/pb33f/libopenapi/datamodel/low"
 	"github.com/pb33f/libopenapi/datamodel/low/base"
 	"github.com/pb33f/libopenapi/index"
 	"github.com/pb33f/libopenapi/utils"
+	"github.com/pb33f/libopenapi/utils/typex"
 	"gopkg.in/yaml.v3"
-	"sort"
-	"strings"
 )
 
 // Parameter represents a low-level Swagger / OpenAPI 2 Parameter object.
@@ -80,7 +81,7 @@ type Parameter struct {
 	UniqueItems      low.NodeReference[bool]
 	Enum             low.NodeReference[[]low.ValueReference[any]]
 	MultipleOf       low.NodeReference[int]
-	Extensions       map[low.KeyReference[string]]low.ValueReference[any]
+	Extensions       typex.Pairs[low.KeyReference[string], low.ValueReference[any]]
 }
 
 // FindExtension attempts to locate a extension value given a name.
@@ -89,7 +90,7 @@ func (p *Parameter) FindExtension(ext string) *low.ValueReference[any] {
 }
 
 // GetExtensions returns all Parameter extensions and satisfies the low.HasExtensions interface.
-func (p *Parameter) GetExtensions() map[low.KeyReference[string]]low.ValueReference[any] {
+func (p *Parameter) GetExtensions() typex.Pairs[low.KeyReference[string], low.ValueReference[any]] {
 	return p.Extensions
 }
 
@@ -188,23 +189,8 @@ func (p *Parameter) Hash() [32]byte {
 		f = append(f, fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprint(p.Pattern.Value)))))
 	}
 
-	keys := make([]string, len(p.Enum.Value))
-	z := 0
-	for k := range p.Enum.Value {
-		keys[z] = fmt.Sprint(p.Enum.Value[k].Value)
-		z++
-	}
-	sort.Strings(keys)
-	f = append(f, keys...)
-
-	keys = make([]string, len(p.Extensions))
-	z = 0
-	for k := range p.Extensions {
-		keys[z] = fmt.Sprintf("%s-%x", k.Value, sha256.Sum256([]byte(fmt.Sprint(p.Extensions[k].Value))))
-		z++
-	}
-	sort.Strings(keys)
-	f = append(f, keys...)
+	f = append(f, low.ReferenceListValues(p.Enum.Value)...)
+	f = append(f, low.GenerateReferencePairsHashes(p.Extensions)...)
 	if p.Items.Value != nil {
 		f = append(f, fmt.Sprintf("%x", p.Items.Value.Hash()))
 	}

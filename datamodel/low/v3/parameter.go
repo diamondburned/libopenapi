@@ -6,13 +6,14 @@ package v3
 import (
 	"crypto/sha256"
 	"fmt"
+	"strings"
+
 	"github.com/pb33f/libopenapi/datamodel/low"
 	"github.com/pb33f/libopenapi/datamodel/low/base"
 	"github.com/pb33f/libopenapi/index"
 	"github.com/pb33f/libopenapi/utils"
+	"github.com/pb33f/libopenapi/utils/typex"
 	"gopkg.in/yaml.v3"
-	"sort"
-	"strings"
 )
 
 // Parameter represents a high-level OpenAPI 3+ Parameter object, that is backed by a low-level one.
@@ -31,9 +32,9 @@ type Parameter struct {
 	AllowReserved   low.NodeReference[bool]
 	Schema          low.NodeReference[*base.SchemaProxy]
 	Example         low.NodeReference[any]
-	Examples        low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*base.Example]]
-	Content         low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*MediaType]]
-	Extensions      map[low.KeyReference[string]]low.ValueReference[any]
+	Examples        low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[*base.Example]]]
+	Content         low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[*MediaType]]]
+	Extensions      typex.Pairs[low.KeyReference[string], low.ValueReference[any]]
 	*low.Reference
 }
 
@@ -53,7 +54,7 @@ func (p *Parameter) FindExtension(ext string) *low.ValueReference[any] {
 }
 
 // GetExtensions returns all extensions for Parameter.
-func (p *Parameter) GetExtensions() map[low.KeyReference[string]]low.ValueReference[any] {
+func (p *Parameter) GetExtensions() typex.Pairs[low.KeyReference[string], low.ValueReference[any]] {
 	return p.Extensions
 }
 
@@ -85,7 +86,7 @@ func (p *Parameter) Build(root *yaml.Node, idx *index.SpecIndex) error {
 		return eErr
 	}
 	if exps != nil {
-		p.Examples = low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*base.Example]]{
+		p.Examples = low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[*base.Example]]]{
 			Value:     exps,
 			KeyNode:   expsL,
 			ValueNode: expsN,
@@ -97,7 +98,7 @@ func (p *Parameter) Build(root *yaml.Node, idx *index.SpecIndex) error {
 	if cErr != nil {
 		return cErr
 	}
-	p.Content = low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*MediaType]]{
+	p.Content = low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[*MediaType]]]{
 		Value:     con,
 		KeyNode:   cL,
 		ValueNode: cN,
@@ -132,31 +133,9 @@ func (p *Parameter) Hash() [32]byte {
 		f = append(f, fmt.Sprintf("%x", p.Example.Value))
 	}
 
-	var keys []string
-	keys = make([]string, len(p.Examples.Value))
-	z := 0
-	for k := range p.Examples.Value {
-		keys[z] = low.GenerateHashString(p.Examples.Value[k].Value)
-		z++
-	}
-	sort.Strings(keys)
-	f = append(f, keys...)
-	keys = make([]string, len(p.Content.Value))
-	z = 0
-	for k := range p.Content.Value {
-		keys[z] = low.GenerateHashString(p.Content.Value[k].Value)
-		z++
-	}
-	sort.Strings(keys)
-	f = append(f, keys...)
-	keys = make([]string, len(p.Extensions))
-	z = 0
-	for k := range p.Extensions {
-		keys[z] = fmt.Sprintf("%s-%x", k.Value, sha256.Sum256([]byte(fmt.Sprint(p.Extensions[k].Value))))
-		z++
-	}
-	sort.Strings(keys)
-	f = append(f, keys...)
+	f = append(f, low.GenerateReferencePairsHashes(p.Examples.Value)...)
+	f = append(f, low.GenerateReferencePairsHashes(p.Content.Value)...)
+	f = append(f, low.GenerateReferencePairsHashes(p.Extensions)...)
 
 	return sha256.Sum256([]byte(strings.Join(f, "|")))
 }

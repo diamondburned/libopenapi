@@ -6,19 +6,21 @@ package v2
 import (
 	"crypto/sha256"
 	"fmt"
+	"sort"
+	"strings"
+
 	"github.com/pb33f/libopenapi/datamodel/low"
 	"github.com/pb33f/libopenapi/index"
 	"github.com/pb33f/libopenapi/utils"
+	"github.com/pb33f/libopenapi/utils/typex"
 	"gopkg.in/yaml.v3"
-	"sort"
-	"strings"
 )
 
 // Examples represents a low-level Swagger / OpenAPI 2 Example object.
 // Allows sharing examples for operation responses
 //   - https://swagger.io/specification/v2/#exampleObject
 type Examples struct {
-	Values map[low.KeyReference[string]]low.ValueReference[any]
+	Values typex.Pairs[low.KeyReference[string], low.ValueReference[any]]
 }
 
 // FindExample attempts to locate an example value, using a key label.
@@ -32,7 +34,7 @@ func (e *Examples) Build(root *yaml.Node, _ *index.SpecIndex) error {
 	utils.CheckForMergeNodes(root)
 	var keyNode, currNode *yaml.Node
 	var err error
-	e.Values = make(map[low.KeyReference[string]]low.ValueReference[any])
+	e.Values = make(typex.Pairs[low.KeyReference[string], low.ValueReference[any]], 0)
 	for i := range root.Content {
 		if i%2 == 0 {
 			keyNode = root.Content[i]
@@ -48,31 +50,31 @@ func (e *Examples) Build(root *yaml.Node, _ *index.SpecIndex) error {
 				// lets just default to interface
 				var j interface{}
 				_ = currNode.Decode(&j)
-				e.Values[low.KeyReference[string]{
+				e.Values.Push(low.KeyReference[string]{
 					Value:   keyNode.Value,
 					KeyNode: keyNode,
-				}] = low.ValueReference[any]{
+				}, low.ValueReference[any]{
 					Value:     j,
 					ValueNode: currNode,
-				}
+				})
 				continue
 			}
-			e.Values[low.KeyReference[string]{
+			e.Values.Push(low.KeyReference[string]{
 				Value:   keyNode.Value,
 				KeyNode: keyNode,
-			}] = low.ValueReference[any]{
+			}, low.ValueReference[any]{
 				Value:     k,
 				ValueNode: currNode,
-			}
+			})
 			continue
 		}
-		e.Values[low.KeyReference[string]{
+		e.Values.Push(low.KeyReference[string]{
 			Value:   keyNode.Value,
 			KeyNode: keyNode,
-		}] = low.ValueReference[any]{
+		}, low.ValueReference[any]{
 			Value:     n,
 			ValueNode: currNode,
-		}
+		})
 
 	}
 	return nil
@@ -82,10 +84,8 @@ func (e *Examples) Build(root *yaml.Node, _ *index.SpecIndex) error {
 func (e *Examples) Hash() [32]byte {
 	var f []string
 	keys := make([]string, len(e.Values))
-	z := 0
-	for k := range e.Values {
-		keys[z] = k.Value
-		z++
+	for i, p := range e.Values {
+		keys[i] = p.Key.Value
 	}
 	sort.Strings(keys)
 	for k := range keys {

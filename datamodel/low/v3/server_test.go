@@ -4,11 +4,12 @@
 package v3
 
 import (
+	"testing"
+
 	"github.com/pb33f/libopenapi/datamodel/low"
 	"github.com/pb33f/libopenapi/index"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
-	"testing"
 )
 
 func TestServer_Build(t *testing.T) {
@@ -33,7 +34,7 @@ variables:
 	err = n.Build(idxNode.Content[0], idx)
 	assert.NoError(t, err)
 
-	assert.Equal(t, "ec69dfcf68ad8988f3804e170ee6c4a7ad2e4ac51084796eea93168820827546",
+	assert.Equal(t, "03277f1d4b1aec8d039e0443a41a8ce041bff2d2278fc3e703b9df4f40fe6b05",
 		low.GenerateHashString(&n))
 
 	assert.Equal(t, "https://pb33f.io", n.URL.Value)

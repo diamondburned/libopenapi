@@ -4,21 +4,23 @@
 package high
 
 import (
+	"testing"
+
 	"github.com/pb33f/libopenapi/datamodel/low"
+	"github.com/pb33f/libopenapi/utils/typex"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
-	"testing"
 )
 
 func TestExtractExtensions(t *testing.T) {
-	n := make(map[low.KeyReference[string]]low.ValueReference[any])
-	n[low.KeyReference[string]{
+	n := make(typex.Pairs[low.KeyReference[string], low.ValueReference[any]], 0)
+	n.Push(low.KeyReference[string]{
 		Value: "pb33f",
-	}] = low.ValueReference[any]{
+	}, low.ValueReference[any]{
 		Value: "new cowboy in town",
-	}
+	})
 	ext := ExtractExtensions(n)
-	assert.Equal(t, "new cowboy in town", ext["pb33f"])
+	assert.Equal(t, "new cowboy in town", ext.Getz("pb33f"))
 }
 
 type textExtension struct {
@@ -35,10 +37,10 @@ func (p *parent) GoLow() *child {
 }
 
 type child struct {
-	Extensions map[low.KeyReference[string]]low.ValueReference[any]
+	Extensions typex.Pairs[low.KeyReference[string], low.ValueReference[any]]
 }
 
-func (c *child) GetExtensions() map[low.KeyReference[string]]low.ValueReference[any] {
+func (c *child) GetExtensions() typex.Pairs[low.KeyReference[string], low.ValueReference[any]] {
 	return c.Extensions
 }
 
@@ -59,18 +61,18 @@ power: 2`
 	err = yaml.Unmarshal([]byte(ymlB), &resultB)
 	assert.NoError(t, err)
 
-	n := make(map[low.KeyReference[string]]low.ValueReference[any])
-	n[low.KeyReference[string]{
+	n := make(typex.Pairs[low.KeyReference[string], low.ValueReference[any]], 0)
+	n.Push(low.KeyReference[string]{
 		Value: "x-rancher-a",
-	}] = low.ValueReference[any]{
+	}, low.ValueReference[any]{
 		ValueNode: resultA.Content[0],
-	}
+	})
 
-	n[low.KeyReference[string]{
+	n.Push(low.KeyReference[string]{
 		Value: "x-rancher-b",
-	}] = low.ValueReference[any]{
+	}, low.ValueReference[any]{
 		ValueNode: resultB.Content[0],
-	}
+	})
 
 	c := new(child)
 	c.Extensions = n
@@ -81,10 +83,10 @@ power: 2`
 	res, err := UnpackExtensions[textExtension, *child](p)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, res)
-	assert.Equal(t, "buckaroo", res["x-rancher-a"].Cowboy)
-	assert.Equal(t, 100, res["x-rancher-a"].Power)
-	assert.Equal(t, "frogman", res["x-rancher-b"].Cowboy)
-	assert.Equal(t, 2, res["x-rancher-b"].Power)
+	assert.Equal(t, "buckaroo", res.Getz("x-rancher-a").Cowboy)
+	assert.Equal(t, 100, res.Getz("x-rancher-a").Power)
+	assert.Equal(t, "frogman", res.Getz("x-rancher-b").Cowboy)
+	assert.Equal(t, 2, res.Getz("x-rancher-b").Power)
 }
 
 func TestUnpackExtensions_Fail(t *testing.T) {
@@ -105,18 +107,18 @@ power: hello`
 	err = yaml.Unmarshal([]byte(ymlB), &resultB)
 	assert.NoError(t, err)
 
-	n := make(map[low.KeyReference[string]]low.ValueReference[any])
-	n[low.KeyReference[string]{
+	n := make(typex.Pairs[low.KeyReference[string], low.ValueReference[any]], 0)
+	n.Push(low.KeyReference[string]{
 		Value: "x-rancher-a",
-	}] = low.ValueReference[any]{
+	}, low.ValueReference[any]{
 		ValueNode: resultA.Content[0],
-	}
+	})
 
-	n[low.KeyReference[string]{
+	n.Push(low.KeyReference[string]{
 		Value: "x-rancher-b",
-	}] = low.ValueReference[any]{
+	}, low.ValueReference[any]{
 		ValueNode: resultB.Content[0],
-	}
+	})
 
 	c := new(child)
 	c.Extensions = n

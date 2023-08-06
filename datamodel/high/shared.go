@@ -15,6 +15,7 @@ package high
 
 import (
 	"github.com/pb33f/libopenapi/datamodel/low"
+	"github.com/pb33f/libopenapi/utils/typex"
 )
 
 // GoesLow is used to represent any high-level model. All high level models meet this interface and can be used to
@@ -35,12 +36,13 @@ type GoesLowUntyped interface {
 	GoLowUntyped() any
 }
 
-// ExtractExtensions is a convenience method for converting low-level extension definitions, to a high level map[string]any
+// ExtractExtensions is a convenience method for converting low-level extension definitions, to a high level typex.Pairs[string, any]
 // definition that is easier to consume in applications.
-func ExtractExtensions(extensions map[low.KeyReference[string]]low.ValueReference[any]) map[string]any {
-	extracted := make(map[string]any)
-	for k, v := range extensions {
-		extracted[k.Value] = v.Value
+func ExtractExtensions(extensions typex.Pairs[low.KeyReference[string], low.ValueReference[any]]) typex.Pairs[string, any] {
+	extracted := make(typex.Pairs[string, any], 0, len(extensions))
+	for _, p := range extensions {
+		k, v := p.Key, p.Value
+		extracted.Push(k.Value, v.Value)
 	}
 	return extracted
 }
@@ -61,18 +63,18 @@ func ExtractExtensions(extensions map[low.KeyReference[string]]low.ValueReferenc
 //
 //	schema := schemaProxy.Schema() // any high-level object that has extensions
 //	extensions, err := UnpackExtensions[MyComplexType, low.Schema](schema)
-func UnpackExtensions[T any, R low.HasExtensions[T]](low GoesLow[R]) (map[string]*T, error) {
-	m := make(map[string]*T)
+func UnpackExtensions[T any, R low.HasExtensions[T]](low GoesLow[R]) (typex.Pairs[string, *T], error) {
 	ext := low.GoLow().GetExtensions()
-	for i := range ext {
-		key := i.Value
+	m := make(typex.Pairs[string, *T], 0, len(ext))
+	for _, p := range ext {
+		k, v := p.Key, p.Value
 		g := new(T)
-		valueNode := ext[i].ValueNode
+		valueNode := v.ValueNode
 		err := valueNode.Decode(g)
 		if err != nil {
 			return nil, err
 		}
-		m[key] = g
+		m.Push(k.Value, g)
 	}
 	return m, nil
 }

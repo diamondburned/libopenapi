@@ -5,13 +5,13 @@ package base
 
 import (
 	"crypto/sha256"
-	"fmt"
+	"strings"
+
 	"github.com/pb33f/libopenapi/datamodel/low"
 	"github.com/pb33f/libopenapi/index"
 	"github.com/pb33f/libopenapi/utils"
+	"github.com/pb33f/libopenapi/utils/typex"
 	"gopkg.in/yaml.v3"
-	"sort"
-	"strings"
 )
 
 // ExternalDoc represents a low-level External Documentation object as defined by OpenAPI 2 and 3
@@ -23,7 +23,7 @@ import (
 type ExternalDoc struct {
 	Description low.NodeReference[string]
 	URL         low.NodeReference[string]
-	Extensions  map[low.KeyReference[string]]low.ValueReference[any]
+	Extensions  typex.Pairs[low.KeyReference[string], low.ValueReference[any]]
 	*low.Reference
 }
 
@@ -42,7 +42,7 @@ func (ex *ExternalDoc) Build(root *yaml.Node, idx *index.SpecIndex) error {
 }
 
 // GetExtensions returns all ExternalDoc extensions and satisfies the low.HasExtensions interface.
-func (ex *ExternalDoc) GetExtensions() map[low.KeyReference[string]]low.ValueReference[any] {
+func (ex *ExternalDoc) GetExtensions() typex.Pairs[low.KeyReference[string], low.ValueReference[any]] {
 	return ex.Extensions
 }
 
@@ -52,13 +52,6 @@ func (ex *ExternalDoc) Hash() [32]byte {
 		ex.Description.Value,
 		ex.URL.Value,
 	}
-	keys := make([]string, len(ex.Extensions))
-	z := 0
-	for k := range ex.Extensions {
-		keys[z] = fmt.Sprintf("%s-%x", k.Value, sha256.Sum256([]byte(fmt.Sprint(ex.Extensions[k].Value))))
-		z++
-	}
-	sort.Strings(keys)
-	f = append(f, keys...)
+	f = append(f, low.GenerateReferencePairsHashes(ex.Extensions)...)
 	return sha256.Sum256([]byte(strings.Join(f, "|")))
 }

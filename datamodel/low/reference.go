@@ -2,8 +2,10 @@ package low
 
 import (
 	"fmt"
+
 	"github.com/pb33f/libopenapi/index"
 	"github.com/pb33f/libopenapi/utils"
+	"github.com/pb33f/libopenapi/utils/typex"
 	"gopkg.in/yaml.v3"
 )
 
@@ -64,14 +66,14 @@ type Hashable interface {
 type HasExtensions[T any] interface {
 
 	// GetExtensions returns generic low level extensions
-	GetExtensions() map[KeyReference[string]]ValueReference[any]
+	GetExtensions() typex.Pairs[KeyReference[string], ValueReference[any]]
 }
 
 // HasExtensionsUntyped is implemented by any object that exposes extensions
 type HasExtensionsUntyped interface {
 
 	// GetExtensions returns generic low level extensions
-	GetExtensions() map[KeyReference[string]]ValueReference[any]
+	GetExtensions() typex.Pairs[KeyReference[string], ValueReference[any]]
 }
 
 // HasValue is implemented by NodeReference and ValueReference to return the yaml.Node backing the value.

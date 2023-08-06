@@ -4,13 +4,15 @@
 package high
 
 import (
-	"github.com/pb33f/libopenapi/datamodel/low"
-	"github.com/pb33f/libopenapi/utils"
-	"github.com/stretchr/testify/assert"
-	"gopkg.in/yaml.v3"
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/pb33f/libopenapi/datamodel/low"
+	"github.com/pb33f/libopenapi/utils"
+	"github.com/pb33f/libopenapi/utils/typex"
+	"github.com/stretchr/testify/assert"
+	"gopkg.in/yaml.v3"
 )
 
 type key struct {
@@ -79,66 +81,67 @@ type plug struct {
 }
 
 type test1 struct {
-	Thrig      map[string]*plug      `yaml:"thrig,omitempty"`
-	Thing      string                `yaml:"thing,omitempty"`
-	Thong      int                   `yaml:"thong,omitempty"`
-	Thrum      int64                 `yaml:"thrum,omitempty"`
-	Thang      float32               `yaml:"thang,omitempty"`
-	Thung      float64               `yaml:"thung,omitempty"`
-	Thyme      bool                  `yaml:"thyme,omitempty"`
-	Thurm      any                   `yaml:"thurm,omitempty"`
-	Thugg      *bool                 `yaml:"thugg,renderZero"`
-	Thurr      *int64                `yaml:"thurr,omitempty"`
-	Thral      *float64              `yaml:"thral,omitempty"`
-	Tharg      []string              `yaml:"tharg,omitempty"`
-	Type       []string              `yaml:"type,omitempty"`
-	Throg      []*key                `yaml:"throg,omitempty"`
-	Thrat      []interface{}         `yaml:"thrat,omitempty"`
-	Thrag      []map[string][]string `yaml:"thrag,omitempty"`
-	Thrug      map[string]string     `yaml:"thrug,omitempty"`
-	Thoom      []map[string]string   `yaml:"thoom,omitempty"`
-	Thomp      map[key]string        `yaml:"thomp,omitempty"`
-	Thump      key                   `yaml:"thump,omitempty"`
-	Thane      key                   `yaml:"thane,omitempty"`
-	Thunk      key                   `yaml:"thunk,omitempty"`
-	Thrim      *key                  `yaml:"thrim,omitempty"`
-	Thril      map[string]*key       `yaml:"thril,omitempty"`
-	Extensions map[string]any        `yaml:"-"`
-	ignoreMe   string                `yaml:"-"`
-	IgnoreMe   string                `yaml:"-"`
+	Thrig      typex.Pairs[string, *plug]      `yaml:"thrig,omitempty"`
+	Thing      string                          `yaml:"thing,omitempty"`
+	Thong      int                             `yaml:"thong,omitempty"`
+	Thrum      int64                           `yaml:"thrum,omitempty"`
+	Thang      float32                         `yaml:"thang,omitempty"`
+	Thung      float64                         `yaml:"thung,omitempty"`
+	Thyme      bool                            `yaml:"thyme,omitempty"`
+	Thurm      any                             `yaml:"thurm,omitempty"`
+	Thugg      *bool                           `yaml:"thugg,renderZero"`
+	Thurr      *int64                          `yaml:"thurr,omitempty"`
+	Thral      *float64                        `yaml:"thral,omitempty"`
+	Tharg      []string                        `yaml:"tharg,omitempty"`
+	Type       []string                        `yaml:"type,omitempty"`
+	Throg      []*key                          `yaml:"throg,omitempty"`
+	Thrat      []interface{}                   `yaml:"thrat,omitempty"`
+	Thrag      []typex.Pairs[string, []string] `yaml:"thrag,omitempty"`
+	Thrug      typex.Pairs[string, string]     `yaml:"thrug,omitempty"`
+	Thoom      []typex.Pairs[string, string]   `yaml:"thoom,omitempty"`
+	Thomp      typex.Pairs[key, string]        `yaml:"thomp,omitempty"`
+	Thump      key                             `yaml:"thump,omitempty"`
+	Thane      key                             `yaml:"thane,omitempty"`
+	Thunk      key                             `yaml:"thunk,omitempty"`
+	Thrim      *key                            `yaml:"thrim,omitempty"`
+	Thril      typex.Pairs[string, *key]       `yaml:"thril,omitempty"`
+	Extensions typex.Pairs[string, any]        `yaml:"-"`
+	ignoreMe   string                          `yaml:"-"`
+	IgnoreMe   string                          `yaml:"-"`
 }
 
-func (te *test1) GetExtensions() map[low.KeyReference[string]]low.ValueReference[any] {
+func (te *test1) GetExtensions() typex.Pairs[low.KeyReference[string], low.ValueReference[any]] {
 
-	g := make(map[low.KeyReference[string]]low.ValueReference[any])
+	g := make(typex.Pairs[low.KeyReference[string], low.ValueReference[any]], 0)
 
-	for i := range te.Extensions {
+	for _, p := range te.Extensions {
+		k, v := p.Key, p.Value
 
-		f := reflect.TypeOf(te.Extensions[i])
+		f := reflect.TypeOf(v)
 		switch f.Kind() {
 		case reflect.String:
-			vn := utils.CreateStringNode(te.Extensions[i].(string))
+			vn := utils.CreateStringNode(v.(string))
 			vn.Line = 999999 // weighted to the bottom.
-			g[low.KeyReference[string]{
-				Value:   i,
+			g.Push(low.KeyReference[string]{
+				Value:   k,
 				KeyNode: vn,
-			}] = low.ValueReference[any]{
+			}, low.ValueReference[any]{
 				ValueNode: vn,
-				Value:     te.Extensions[i].(string),
-			}
+				Value:     v.(string),
+			})
 		case reflect.Map:
-			kn := utils.CreateStringNode(i)
+			kn := utils.CreateStringNode(k)
 			var vn yaml.Node
-			_ = vn.Decode(te.Extensions[i])
+			_ = vn.Decode(v)
 
 			kn.Line = 999999 // weighted to the bottom.
-			g[low.KeyReference[string]{
-				Value:   i,
+			g.Push(low.KeyReference[string]{
+				Value:   k,
 				KeyNode: kn,
-			}] = low.ValueReference[any]{
+			}, low.ValueReference[any]{
 				ValueNode: &vn,
-				Value:     te.Extensions[i],
-			}
+				Value:     v,
+			})
 		}
 
 	}
@@ -180,29 +183,29 @@ func TestNewNodeBuilder(t *testing.T) {
 		Thral:    &d,
 		Tharg:    []string{"chicken", "nuggets"},
 		Type:     []string{"chicken"},
-		Thoom: []map[string]string{
+		Thoom: []typex.Pairs[string, string]{
 			{
-				"maddy": "champion",
+				{Key: "maddy", Value: "champion"},
 			},
 			{
-				"ember": "naughty",
+				{Key: "ember", Value: "naughty"},
 			},
 		},
-		Thomp: map[key]string{
-			{ln: 1}: "princess",
+		Thomp: typex.Pairs[key, string]{
+			{Key: key{ln: 1}, Value: "princess"},
 		},
 		Thane: key{ // this is going to be ignored, needs to be a ValueReference
 			ln:     2,
 			ref:    true,
 			refStr: "ripples",
 		},
-		Thrug: map[string]string{
-			"chicken": "nuggets",
+		Thrug: typex.Pairs[string, string]{
+			{Key: "chicken", Value: "nuggets"},
 		},
 		Thump: key{Name: "I will be ignored", ln: 3},
 		Thunk: key{ln: 4, nilval: true},
-		Extensions: map[string]any{
-			"x-pizza": "time",
+		Extensions: typex.Pairs[string, any]{
+			{Key: "x-pizza", Value: "time"},
 		},
 	}
 
@@ -278,9 +281,9 @@ func TestNewNodeBuilder_Extensions(t *testing.T) {
 
 	t1 := test1{
 		Thing: "ding",
-		Extensions: map[string]any{
-			"x-pizza": "time",
-			"x-money": "time",
+		Extensions: typex.Pairs[string, any]{
+			{Key: "x-pizza", Value: "time"},
+			{Key: "x-money", Value: "time"},
 		},
 		Thong: 1,
 	}
@@ -296,9 +299,9 @@ func TestNewNodeBuilder_LowValueNode(t *testing.T) {
 
 	t1 := test1{
 		Thing: "ding",
-		Extensions: map[string]any{
-			"x-pizza": "time",
-			"x-money": "time",
+		Extensions: typex.Pairs[string, any]{
+			{Key: "x-pizza", Value: "time"},
+			{Key: "x-money", Value: "time"},
 		},
 		Thong: 1,
 	}
@@ -415,8 +418,8 @@ func TestNewNodeBuilder_EmptyNode(t *testing.T) {
 func TestNewNodeBuilder_MapKeyHasValue(t *testing.T) {
 
 	t1 := test1{
-		Thrug: map[string]string{
-			"dump": "trump",
+		Thrug: typex.Pairs[string, string]{
+			{Key: "dump", Value: "trump"},
 		},
 	}
 
@@ -427,8 +430,8 @@ func TestNewNodeBuilder_MapKeyHasValue(t *testing.T) {
 
 	t2 := test1low{
 		Thrug: key{
-			v: map[string]string{
-				"dump": "trump",
+			v: typex.Pairs[string, string]{
+				{Key: "dump", Value: "trump"},
 			},
 			ln: 2,
 		},
@@ -448,8 +451,8 @@ func TestNewNodeBuilder_MapKeyHasValue(t *testing.T) {
 func TestNewNodeBuilder_MapKeyHasValueThatHasValue(t *testing.T) {
 
 	t1 := test1{
-		Thomp: map[key]string{
-			{v: "who"}: "princess",
+		Thomp: typex.Pairs[key, string]{
+			{Key: key{v: "who"}, Value: "princess"},
 		},
 	}
 
@@ -460,14 +463,18 @@ func TestNewNodeBuilder_MapKeyHasValueThatHasValue(t *testing.T) {
 
 	t2 := test1low{
 		Thomp: key{
-			v: map[key]string{
+			v: typex.Pairs[key, string]{
 				{
-					v: key{
-						v:  "ice",
-						kn: utils.CreateStringNode("limes"),
+					Key: key{
+						v: key{
+							v:  "ice",
+							kn: utils.CreateStringNode("limes"),
+						},
+						kn: utils.CreateStringNode("chimes"),
+						ln: 6,
 					},
-					kn: utils.CreateStringNode("chimes"),
-					ln: 6}: "princess",
+					Value: "princess",
+				},
 			},
 			ln: 2,
 		},
@@ -487,19 +494,19 @@ func TestNewNodeBuilder_MapKeyHasValueThatHasValue(t *testing.T) {
 func TestNewNodeBuilder_MapKeyHasValueThatHasValueMatch(t *testing.T) {
 
 	t1 := test1{
-		Thomp: map[key]string{
-			{v: "who"}: "princess",
+		Thomp: typex.Pairs[key, string]{
+			{Key: key{v: "who"}, Value: "princess"},
 		},
 	}
 
 	type test1low struct {
-		Thomp low.NodeReference[map[key]string] `yaml:"thomp"`
-		Thugg *bool                             `yaml:"thugg"`
+		Thomp low.NodeReference[typex.Pairs[key, string]] `yaml:"thomp"`
+		Thugg *bool                                       `yaml:"thugg"`
 	}
 
-	g := low.NodeReference[map[key]string]{
-		Value: map[key]string{
-			{v: "my", kn: utils.CreateStringNode("limes")}: "princess",
+	g := low.NodeReference[typex.Pairs[key, string]]{
+		Value: typex.Pairs[key, string]{
+			{Key: key{v: "my", kn: utils.CreateStringNode("limes")}, Value: "princess"},
 		},
 	}
 
@@ -521,19 +528,19 @@ func TestNewNodeBuilder_MapKeyHasValueThatHasValueMatch(t *testing.T) {
 func TestNewNodeBuilder_MapKeyHasValueThatHasValueMatchKeyNode(t *testing.T) {
 
 	t1 := test1{
-		Thomp: map[key]string{
-			{v: "who"}: "princess",
+		Thomp: typex.Pairs[key, string]{
+			{Key: key{v: "who"}, Value: "princess"},
 		},
 	}
 
 	type test1low struct {
-		Thomp low.NodeReference[map[key]string] `yaml:"thomp"`
-		Thugg *bool                             `yaml:"thugg"`
+		Thomp low.NodeReference[typex.Pairs[key, string]] `yaml:"thomp"`
+		Thugg *bool                                       `yaml:"thugg"`
 	}
 
-	g := low.NodeReference[map[key]string]{
-		Value: map[key]string{
-			{v: "my", kn: utils.CreateStringNode("limes")}: "princess",
+	g := low.NodeReference[typex.Pairs[key, string]]{
+		Value: typex.Pairs[key, string]{
+			{Key: key{v: "my", kn: utils.CreateStringNode("limes")}, Value: "princess"},
 		},
 	}
 
@@ -555,19 +562,19 @@ func TestNewNodeBuilder_MapKeyHasValueThatHasValueMatchKeyNode(t *testing.T) {
 func TestNewNodeBuilder_MapKeyHasValueThatHasValueMatch_NoWrap(t *testing.T) {
 
 	t1 := test1{
-		Thomp: map[key]string{
-			{v: "who"}: "princess",
+		Thomp: typex.Pairs[key, string]{
+			{Key: key{v: "who"}, Value: "princess"},
 		},
 	}
 
 	type test1low struct {
-		Thomp map[key]string `yaml:"thomp"`
-		Thugg *bool          `yaml:"thugg"`
+		Thomp typex.Pairs[key, string] `yaml:"thomp"`
+		Thugg *bool                    `yaml:"thugg"`
 	}
 
 	t2 := test1low{
-		Thomp: map[key]string{
-			{v: "my", kn: utils.CreateStringNode("meddy")}: "princess",
+		Thomp: typex.Pairs[key, string]{
+			{Key: key{v: "my", kn: utils.CreateStringNode("meddy")}, Value: "princess"},
 		},
 	}
 
@@ -597,11 +604,11 @@ func TestNewNodeBuilder_ExtensionMap(t *testing.T) {
 
 	t1 := test1{
 		Thing: "ding",
-		Extensions: map[string]any{
-			"x-pizza": map[string]string{
-				"dump": "trump",
-			},
-			"x-money": "time",
+		Extensions: typex.Pairs[string, any]{
+			{Key: "x-pizza", Value: typex.Pairs[string, string]{
+				{Key: "dump", Value: "trump"},
+			}},
+			{Key: "x-money", Value: "time"},
 		},
 		Thong: 1,
 	}
@@ -617,17 +624,17 @@ func TestNewNodeBuilder_ExtensionMap(t *testing.T) {
 func TestNewNodeBuilder_MapKeyHasValueThatHasValueMismatch(t *testing.T) {
 
 	t1 := test1{
-		Extensions: map[string]any{
-			"x-pizza": map[string]string{
-				"dump": "trump",
-			},
-			"x-cake": map[string]string{
-				"maga": "nomore",
-			},
+		Extensions: typex.Pairs[string, any]{
+			{Key: "x-pizza", Value: typex.Pairs[string, string]{
+				{Key: "dump", Value: "trump"},
+			}},
+			{Key: "x-cake", Value: typex.Pairs[string, string]{
+				{Key: "maga", Value: "nomore"},
+			}},
 		},
-		Thril: map[string]*key{
-			"princess": {v: "who", Name: "beef", ln: 2},
-			"heavy":    {v: "who", Name: "industries", ln: 3},
+		Thril: typex.Pairs[string, *key]{
+			{Key: "princess", Value: &key{v: "who", Name: "beef", ln: 2}},
+			{Key: "heavy", Value: &key{v: "who", Name: "industries", ln: 3}},
 		},
 	}
 
@@ -884,8 +891,10 @@ func TestNewNodeBuilder_TestStructDefaultEncode(t *testing.T) {
 
 func TestNewNodeBuilder_TestSliceMapSliceStruct(t *testing.T) {
 
-	a := []map[string][]string{
-		{"pizza": {"beer", "wine"}},
+	a := []typex.Pairs[string, []string]{
+		{
+			{Key: "pizza", Value: []string{"beer", "wine"}},
+		},
 	}
 
 	t1 := test1{
@@ -925,8 +934,8 @@ func TestNewNodeBuilder_TestRenderZero(t *testing.T) {
 func TestNewNodeBuilder_TestRenderServerVariableSimulation(t *testing.T) {
 
 	t1 := test1{
-		Thrig: map[string]*plug{
-			"pork": {Name: []string{"gammon", "bacon"}},
+		Thrig: typex.Pairs[string, *plug]{
+			{Key: "pork", Value: &plug{Name: []string{"gammon", "bacon"}}},
 		},
 	}
 
@@ -946,21 +955,21 @@ func TestNewNodeBuilder_TestRenderServerVariableSimulation(t *testing.T) {
 
 func TestNewNodeBuilder_ShouldHaveNotDoneTestsLikeThisOhWell(t *testing.T) {
 
-	m := make(map[low.KeyReference[string]]low.ValueReference[*key])
+	m := make(typex.Pairs[low.KeyReference[string], low.ValueReference[*key]], 0)
 
-	m[low.KeyReference[string]{
+	m.Push(low.KeyReference[string]{
 		KeyNode: utils.CreateStringNode("pizza"),
 		Value:   "pizza",
-	}] = low.ValueReference[*key]{
+	}, low.ValueReference[*key]{
 		ValueNode: utils.CreateStringNode("beer"),
 		Value:     &key{},
-	}
+	})
 
-	d := make(map[string]*key)
-	d["pizza"] = &key{}
+	d := make(typex.Pairs[string, *key], 0)
+	d.Push("pizza", &key{})
 
 	type t1low struct {
-		Thril low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*key]]
+		Thril low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[*key]]]
 		Thugg *bool `yaml:"thugg"`
 	}
 
@@ -969,7 +978,7 @@ func TestNewNodeBuilder_ShouldHaveNotDoneTestsLikeThisOhWell(t *testing.T) {
 	}
 
 	t2 := t1low{
-		Thril: low.NodeReference[map[low.KeyReference[string]]low.ValueReference[*key]]{
+		Thril: low.NodeReference[typex.Pairs[low.KeyReference[string], low.ValueReference[*key]]]{
 			Value:     m,
 			ValueNode: utils.CreateStringNode("beer"),
 		},

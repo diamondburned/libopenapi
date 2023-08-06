@@ -4,12 +4,14 @@
 package v3
 
 import (
+	"testing"
+
 	"github.com/pb33f/libopenapi/datamodel/low"
 	"github.com/pb33f/libopenapi/datamodel/low/base"
 	"github.com/pb33f/libopenapi/index"
+	"github.com/pb33f/libopenapi/utils/typex"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
-	"testing"
 )
 
 func TestParameter_Build(t *testing.T) {
@@ -279,6 +281,6 @@ content:
 	assert.True(t, n.GetAllowReserved().Value)
 	assert.True(t, n.GetExplode().Value)
 	assert.NotNil(t, n.GetExample().Value)
-	assert.Len(t, n.GetExamples().Value.(map[low.KeyReference[string]]low.ValueReference[*base.Example]), 2)
-	assert.Len(t, n.GetContent().Value.(map[low.KeyReference[string]]low.ValueReference[*MediaType]), 1)
+	assert.Len(t, n.GetExamples().Value.(typex.Pairs[low.KeyReference[string], low.ValueReference[*base.Example]]), 2)
+	assert.Len(t, n.GetContent().Value.(typex.Pairs[low.KeyReference[string], low.ValueReference[*MediaType]]), 1)
 }
